@@ -10,6 +10,8 @@ Everything that took work to get running on a 2016 MacBook Pro (T1 chip, 14,3) u
 
 Tested on MacBookPro14,3, Arch Linux, kernel 7.2.9-arch1-1.
 
+Authorship: Claude (Anthropic) wrote almost all of this kit: the installer scripts, the READMEs, and the troubleshooting notes. Walker-18png directed the work, tested it on the MacBook, and published it.
+
 ## Order
 
 1. **Wi-Fi.** `cd wifi && sudo ./install-wifi.sh`, then reboot.
