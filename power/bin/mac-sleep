@@ -2,7 +2,7 @@
 # MacBookPro14,3 sleep hook (systemd system-sleep). s2idle only.
 # pre:  keep Wi-Fi, Thunderbolt and USB-C powered (Apple firmware won't bring
 #       them back from D3cold), make the EC a wake source so opening the lid
-#       wakes the machine, stop the fans and keyboard backlight, unbind amdgpu
+#       wakes the machine, unload Wi-Fi, stop the fans and keyboard backlight, unbind amdgpu
 #       if it is bound and the Radeon is still on.
 # post: undo the above and turn the panel back on (Hyprland only).
 case "$1" in
@@ -21,6 +21,11 @@ pre)
   # when the EC is off.
   if grep -q "^EC.*disabled" /proc/acpi/wakeup; then
     echo EC > /proc/acpi/wakeup && logger -t mac-sleep "EC wake enabled"
+  fi
+  # The BCM43602 firmware can hang after s2idle (brcmf dcmd timeouts, no
+  # Wi-Fi until reboot). Unload the driver for the sleep; post reloads it.
+  if lsmod | grep -q "^brcmfmac "; then
+    modprobe -r brcmfmac_wcc brcmfmac && touch /run/brcmfmac-unloaded
   fi
   # hypridle's dpms-off timer fires right after wake and fights the panel.
   # The lock already ran on PrepareForSleep. mac-wake-display restarts it.
@@ -54,6 +59,10 @@ post)
   if [ -f /run/pci-control.saved ]; then
     while read -r d c; do echo "$c" > "$d/power/control"; done < /run/pci-control.saved
     rm -f /run/pci-control.saved
+  fi
+  if [ -f /run/brcmfmac-unloaded ]; then
+    rm -f /run/brcmfmac-unloaded
+    systemd-run --no-block --quiet --unit=brcmfmac-reload --collect modprobe brcmfmac
   fi
   if [ -f /run/fans-stopped ]; then
     for f in 1 2; do echo 0 > /sys/devices/platform/applesmc.768/fan${f}_manual; done

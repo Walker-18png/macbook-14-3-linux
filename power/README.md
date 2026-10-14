@@ -1,6 +1,6 @@
 # Sleep and hybrid graphics
 
-Makes the MacBookPro14,3 sleep when you close the lid and wake when you open it, with the Intel
+Makes the MacBookPro14,3 sleep when you close the lid and wake on a key press, with the Intel
 GPU on the panel and the Radeon off. Wi-Fi, Thunderbolt, USB-C and the Touch Bar all come back
 after wake.
 
@@ -50,13 +50,14 @@ Touch Bar to survive sleep; its driver carries the resume fix.
 | Problem | Cause | Fix |
 |---|---|---|
 | Deep sleep (S3) and hibernate wake to a black or console screen, or reboot | Apple firmware re-POSTs the Radeon only at cold boot; amdgpu fails "SMU load firmware". Wi-Fi firmware and Thunderbolt die in S3 too | `conf/s2idle.conf`: s2idle only |
-| Opening the lid doesn't wake the machine; only a key press does | The lid reports through the embedded controller (EC query `_Q20`), and Linux leaves the EC disabled in `/proc/acpi/wakeup`. LID0's own wake GPE (0x6F) never fires | `mac-sleep` hook enables EC wake before each sleep |
+| Opening the lid never wakes the machine | The lid reports through the embedded controller (EC query `_Q20`), and Linux leaves the EC disabled in `/proc/acpi/wakeup`. LID0's own wake GPE (0x6F) never fires | `mac-sleep` hook enables EC wake before each sleep. This helps only for short sleeps: see Not working |
 | Panel on the Radeon, Radeon can't sleep | EFI variable `gpu-power-prefs` picks the GPU at power-on | `gpu-prefs-guard` keeps it on Intel at every boot |
 | After a macOS boot, Linux shows a console only (i915 "disabling eDP") | macOS resets `gpu-power-prefs` to the Radeon | `gmux-igd` switches the gmux mux to Intel before i915 loads, so this boot still gets the panel |
 | Panel shows up as eDP-2, scripts that use eDP-1 break | amdgpu probed first and took the eDP-1 name | amdgpu blacklisted from autoload; `dgpu-off` loads it by name after i915 |
 | Radeon idles at about 10 W with no driver | Driverless Radeon stays in D0, ungated | `dgpu-off` powers it off through vga_switcheroo. Idle draw drops from about 23 W to 12 W |
 | Thunderbolt and USB-C gone after the first sleep (`tb_cfg_read: -108`) | The kernel sets the LC sleep bit on the host routers and the chip stops answering | `tb-lc-keep` (DKMS) skips that call in s2idle only. Carry of omarchy-pkgs PR #596 patch 0664 |
 | USB-C ports ignore a plug-in | Apple's `_OSC` withholds native PME, so the runtime-suspended Alpine Ridge xHCIs never wake | `pcie_ports=native` on the kernel line. Fallback without it: `udev/63-tb-xhci-awake.rules` |
+| Wi-Fi gone after wake, `brcmf` dcmd timeouts until reboot | The BCM43602 firmware hangs across s2idle | Hook unloads `brcmfmac` before sleep and reloads it after wake |
 | Wi-Fi and Thunderbolt dead after wake | Firmware won't bring them back from D3cold | Hook pins them powered during sleep, restores runtime PM after |
 | Fans run at 2000 rpm and the keyboard stays lit while asleep | The SMC keeps them going in s2idle | Hook stops fans below 85 °C and turns the backlight off |
 | Spurious wakes | The T1 iBridge is a wake source | `udev/62-t1-no-wakeup.rules` |
@@ -107,6 +108,12 @@ Test sleep without the lid: `sudo rtcwake -m no -s 45 && systemctl suspend` wake
 
 ## Not working
 
-- Deep S3 and hibernate. Both fail on the Radeon, and S3 with the Radeon off rebooted the machine.
+- Deep S3 and hibernate. Both fail on the Radeon. S3 with the Radeon off rebooted the machine, and
+  S3 with the Radeon powered and driverless rebooted it into the boot picker.
+- Lid wake after about a minute of sleep. The lid wakes the machine only if it slept for under
+  about a minute (worked at 6 s and 56 s, failed every time from 98 s on). After that, press a key.
+  No EC event or wake GPE reaches the host. Our best guess: the SMC drops its lid-wake line
+  because s2idle never asserts SLP_S3#, and macOS doesn't hit this because it uses real S3.
+  An EC wake timer to re-arm it from a dark wake never fired in s2idle.
 - `gmux-igd` after a macOS visit is the least tested part: it should give a normal login screen.
   If the panel stays dark, reboot once; `gpu-prefs-guard` has fixed the variable by then.
