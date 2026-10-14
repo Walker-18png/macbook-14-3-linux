@@ -1,18 +1,21 @@
 #!/usr/bin/env bash
 #
-# Sleep and hybrid graphics on the MacBookPro14,3 (Intel HD 630 + Radeon Pro 450/455/460).
+# Sleep and hybrid graphics on the MacBookPro14,3. Tested on one machine: HD 630 (8086:591b)
+# + Radeon Pro 555 (1002:67ef), Hyprland. See README.md, "Scope".
 #   sudo ./install-power.sh              Intel drives the panel, lid sleep (s2idle) works
 #   sudo ./install-power.sh --dgpu-off   also power the Radeon off at boot (saves about 10 W)
 #   sudo ./install-power.sh --dry-run    print the steps only
+#   sudo ./install-power.sh --force      skip the GPU check (untested hardware)
 #
 set -euo pipefail
 
-DRY=0 DGPU=0
+DRY=0 DGPU=0 FORCE=0
 for a in "$@"; do
   case "$a" in
     --dry-run) DRY=1 ;;
     --dgpu-off) DGPU=1 ;;
-    *) echo "usage: sudo $0 [--dgpu-off] [--dry-run]" >&2; exit 2 ;;
+    --force) FORCE=1 ;;
+    *) echo "usage: sudo $0 [--dgpu-off] [--dry-run] [--force]" >&2; exit 2 ;;
   esac
 done
 [ $DRY = 1 ] || [ "$(id -u)" -eq 0 ] || { echo "Run as root: sudo $0" >&2; exit 1; }
@@ -26,6 +29,14 @@ if [ "$model" != MacBookPro14,3 ]; then
   echo "This is '$model', not a MacBookPro14,3. The gmux, PCI and ACPI paths here are for the 14,3." >&2
   exit 1
 fi
+igd=$(cat /sys/bus/pci/devices/0000:00:02.0/{vendor,device} 2>/dev/null | tr '\n' ' ')
+dgpu=$(cat /sys/bus/pci/devices/0000:01:00.0/{vendor,device} 2>/dev/null | tr '\n' ' ')
+if [ "$igd" != "0x8086 0x591b " ] || [ "$dgpu" != "0x1002 0x67ef " ]; then
+  echo "GPUs differ from the tested machine (00:02.0 = $igd, 01:00.0 = $dgpu;" >&2
+  echo "tested: 0x8086 0x591b and 0x1002 0x67ef). See README.md, Scope." >&2
+  [ $FORCE = 1 ] || { echo "Re-run with --force to install anyway." >&2; exit 1; }
+fi
+command -v Hyprland >/dev/null || echo "Hyprland not found: the panel-on-after-wake step will be skipped. See README.md, Scope."
 
 echo "== 1. Firmware: boot with the Intel GPU on the panel (EFI gpu-power-prefs)"
 V=/sys/firmware/efi/efivars/gpu-power-prefs-fa4ce28d-b62f-4c99-9cc3-6815686e30f9

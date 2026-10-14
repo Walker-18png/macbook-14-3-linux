@@ -6,6 +6,32 @@ after wake.
 
 Tested on MacBookPro14,3, EndeavourOS (Arch), kernel 7.2.9-arch1-1, Hyprland with hypridle.
 
+## Scope: read before you install
+
+We worked this out on one machine. Other 14,3s can differ, so check yours against this list.
+
+| Part | Tested configuration |
+|---|---|
+| Intel GPU | HD Graphics 630, `8086:591b` at `00:02.0` |
+| Radeon | Radeon Pro 555 (Polaris 11), `1002:67ef`, Apple subsystem `106b:017a`, at `01:00.0` |
+| Firmware | Apple EFI 529.140.2.0.0 |
+| Boot | systemd-boot through `kernel-install` (`/etc/kernel/cmdline`, `reinstall-kernels`), dracut initrd |
+| Desktop | Hyprland with a Lua config (`hyprland.lua`), hypridle, a quickshell lock screen |
+
+- **GPU.** The 14,3 shipped with a Radeon Pro 555 or 560. Only the 555 was tested. The gmux,
+  `gpu-power-prefs` and vga_switcheroo steps should apply to the 560 too. The PCI addresses are
+  hard-coded in `udev/61-gpu-names.rules` and `bin/mac-sleep`. The installer checks both GPUs and
+  stops on a mismatch; `--force` skips the check. Compare yours with `lspci -nn | grep VGA`.
+- **Firmware.** The EC lid wake, the `gpu-power-prefs` value and the gmux registers come from this
+  firmware's ACPI tables. A different macOS or firmware version can change them.
+- **Hyprland.** These parts are Hyprland-only: `mac-wake-display` (panel on after wake, hypridle
+  restart), the hypridle kill in `mac-sleep`, `AQ_DRM_DEVICES`, and the dpms toggle fix. The hook
+  skips the panel step when Hyprland isn't running. On GNOME, KDE or Sway, the compositor turns the
+  panel back on itself; point it at `/dev/dri/intel` in its own way. Everything else (s2idle, EC lid
+  wake, gmux, Radeon off, Thunderbolt, USB-C, fans, keyboard light) works without a desktop.
+- **Boot loader.** GRUB and mkinitcpio users add `pcie_ports=native` by hand and remove i915 and
+  amdgpu from the initrd themselves. The installer says so.
+
 ## Install
 
 ```sh
