@@ -1432,6 +1432,31 @@ static int appletb_reset_resume(struct hid_device *hdev)
 }
 #endif
 
+#ifdef CONFIG_PM
+/*
+ * s2idle does not reset the USB device, so .resume runs instead of
+ * .reset_resume. usbhid also calls .resume after every runtime autosuspend
+ * (the iBridge autosuspends 2 s after each touch). appletb_suspend ignores
+ * those and leaves the interface unmarked; restoring then would re-send the
+ * mode and drop the touch that woke the device. Restore only after a system
+ * sleep.
+ */
+static int appletb_resume(struct hid_device *hdev)
+{
+	struct appletb_device *tb_dev = hid_get_drvdata(hdev);
+	struct appletb_iface_info *iface_info;
+	unsigned long flags;
+	bool system_sleep;
+
+	spin_lock_irqsave(&tb_dev->tb_lock, flags);
+	iface_info = appletb_get_iface_info(tb_dev, hdev);
+	system_sleep = iface_info && iface_info->suspended;
+	spin_unlock_irqrestore(&tb_dev->tb_lock, flags);
+
+	return system_sleep ? appletb_reset_resume(hdev) : 0;
+}
+#endif
+
 static struct appletb_device *appletb_alloc_device(void)
 {
 	struct appletb_device *tb_dev;
@@ -1477,7 +1502,7 @@ static struct hid_driver appletb_hid_driver = {
 	.input_configured = appletb_input_configured,
 #ifdef CONFIG_PM
 	.suspend = appletb_suspend,
-	.resume = appletb_reset_resume, /* s2idle: USB not reset, so plain resume is called */
+	.resume = appletb_resume,
 	.reset_resume = appletb_reset_resume,
 #endif
 };
