@@ -1,0 +1,87 @@
+#!/bin/bash
+# Test-build every DKMS module against an incoming linux-headers package before pacman
+# installs it. Run by 01-dkms-precheck.hook (PreTransaction, AbortOnFail): one failed build
+# aborts the whole upgrade and leaves the system as it was.
+#
+# The build runs in a private mount namespace. Overlays put the new headers under
+# /usr/lib/modules and catch all writes to /var/lib/dkms and /usr/src, so nothing touches
+# the real system. Modules whose Makefiles hard-code /lib/modules/<kver>/build still work.
+#
+#   dkms-precheck                    hook mode: reads pacman targets on stdin
+#   dkms-precheck <headers.pkg.tar>  test a package file by hand
+#   touch /etc/dkms-precheck.skip    skip the check once (the file is removed)
+set -uo pipefail
+
+if [[ -e /etc/dkms-precheck.skip ]]; then
+  rm -f /etc/dkms-precheck.skip
+  echo "==> dkms-precheck: skipped once (/etc/dkms-precheck.skip)"
+  exit 0
+fi
+
+pkg=${1:-}
+if [[ -z $pkg ]]; then
+  grep -qx linux-headers || exit 0
+  ver=$(pacman -Si linux-headers 2>/dev/null | awk '/^Version/ {print $3; exit}')
+  for d in $(pacman-conf CacheDir); do
+    for f in "$d"/linux-headers-"$ver"-x86_64.pkg.tar.*; do
+      [[ -f $f && $f != *.sig ]] && pkg=$f
+    done
+  done
+  if [[ -z $pkg ]]; then
+    echo "==> dkms-precheck: no cached linux-headers $ver package found. Upgrade aborted."
+    echo "==> To upgrade without the check: sudo touch /etc/dkms-precheck.skip, then rerun."
+    exit 1
+  fi
+fi
+
+tmp=$(mktemp -d /var/tmp/dkms-precheck.XXXXXX)
+trap 'umount -R "$tmp/mnt" 2>/dev/null; rm -rf "$tmp"' EXIT
+mkdir -p "$tmp"/{new,logs,mnt}
+bsdtar -xf "$pkg" -C "$tmp/new" usr/lib/modules || { echo "==> dkms-precheck: cannot read $pkg"; exit 1; }
+kver=$(ls "$tmp/new/usr/lib/modules")
+mods=()
+for src in /var/lib/dkms/*/*/source; do
+  [[ -e $src ]] || continue
+  mv=${src#/var/lib/dkms/}; mods+=("${mv%/source}")
+done
+echo "==> dkms-precheck: test-building ${#mods[@]} DKMS modules for $kver"
+
+# Inside the namespace: overlay the three trees, then build each module.
+unshare -m --propagation private bash -s "$tmp" "$kver" "${mods[@]}" <<'NS'
+tmp=$1 kver=$2; shift 2
+ov() {  # ov <dir> <name> [extra lower]
+  mkdir -p "$tmp/mnt/$2"/{up,work}
+  mount -t overlay overlay -o "lowerdir=${3:+$3:}$1,upperdir=$tmp/mnt/$2/up,workdir=$tmp/mnt/$2/work" "$1"
+}
+ov /usr/lib/modules modules "$tmp/new/usr/lib/modules" || exit 2
+ov /var/lib/dkms dkms || exit 2
+ov /usr/src src || exit 2
+fail=0
+for mv in "$@"; do
+  m=${mv%/*} v=${mv#*/}
+  dkms build -m "$m" -v "$v" -k "$kver" --force >"$tmp/logs/$m.log" 2>&1
+  rc=$?
+  if [[ $rc = 0 ]]; then
+    echo "    ok      $m $v"
+  elif [[ $rc = 77 ]]; then
+    echo "    skipped $m $v (dkms.conf excludes $kver)"
+  else
+    echo "    FAILED  $m $v"
+    tail -n 15 "$tmp/logs/$m.log" | sed 's/^/        /'
+    log=$(ls -t /var/lib/dkms/"$m"/"$v"/build/make.log 2>/dev/null | head -1)
+    [[ -n $log ]] && grep -m 5 -E "error" "$log" | sed 's/^/        /'
+    fail=1
+  fi
+done
+exit $fail
+NS
+rc=$?
+
+if [[ $rc != 0 ]]; then
+  echo "==> dkms-precheck: a DKMS module does not build for $kver. Upgrade aborted; nothing changed."
+  echo "==> Keep the working kernel and upgrade everything else:"
+  echo "==>   sudo pacman -Syu --ignore linux,linux-headers"
+  echo "==> Then fix the module (or wait for an update) and run the full upgrade again."
+  exit 1
+fi
+echo "==> dkms-precheck: all modules build for $kver"

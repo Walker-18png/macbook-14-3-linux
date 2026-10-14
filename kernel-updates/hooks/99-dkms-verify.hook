@@ -1,0 +1,13 @@
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Package
+Target = linux
+Target = linux-headers
+Target = *-dkms
+Target = *-dkms-git
+
+[Action]
+Description = Verifying all DKMS modules are built for installed kernels...
+When = PostTransaction
+Exec = /usr/local/bin/dkms-verify

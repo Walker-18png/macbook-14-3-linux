@@ -7,12 +7,14 @@ set -uo pipefail
 systemctl disable gmux-igd.service gpu-prefs-guard.service dgpu-off.service 2>/dev/null
 dkms remove tb-lc-keep/1.0 --all 2>/dev/null
 rm -rf /usr/src/tb-lc-keep-1.0
+dkms remove acpi-bridge-bus/1.0 --all 2>/dev/null
+rm -rf /usr/src/acpi-bridge-bus-1.0
 rm -f /usr/local/bin/{gmux-igd,gpu-prefs-guard,mac-wake-display,dgpu-off,dgpu-off-enable,dgpu-off-disable} \
   /etc/systemd/system/{gmux-igd,gpu-prefs-guard,dgpu-off}.service \
   /usr/lib/systemd/system-sleep/mac-sleep \
   /etc/systemd/sleep.conf.d/s2idle.conf /etc/systemd/logind.conf.d/lid.conf \
   /etc/udev/rules.d/{61-gpu-names,62-t1-no-wakeup,63-tb-xhci-awake}.rules \
-  /etc/modprobe.d/no-amdgpu.conf /etc/modules-load.d/tb-lc-keep.conf \
+  /etc/modprobe.d/no-amdgpu.conf /etc/modules-load.d/tb-lc-keep.conf /etc/modules-load.d/acpi-bridge-bus.conf \
   /etc/dracut.conf.d/zz-no-gpu-in-initrd.conf /etc/issue.d/gpu-prefs.issue
 [ -f /etc/kernel/cmdline.bak-power ] && mv /etc/kernel/cmdline.bak-power /etc/kernel/cmdline
 systemctl daemon-reload

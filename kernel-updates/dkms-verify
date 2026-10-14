@@ -1,0 +1,21 @@
+#!/bin/bash
+# Warn loudly if any registered DKMS module isn't installed for an installed kernel.
+fail=0
+for kdir in /usr/lib/modules/*/; do
+    [[ -f $kdir/pkgbase ]] || continue          # only kernels owned by a package
+    k=$(basename "$kdir")
+    for src in /var/lib/dkms/*/*/source; do
+        [[ -e $src ]] || continue
+        mv=${src#/var/lib/dkms/}; mv=${mv%/source}   # module/version
+        if ! dkms status -m "${mv%/*}" -v "${mv#*/}" -k "$k" 2>/dev/null | grep -q ': installed'; then
+            echo "==> WARNING: DKMS module ${mv} is NOT installed for kernel $k"
+            fail=1
+        fi
+    done
+done
+if (( fail )); then
+    echo "==> Do not reboot until fixed. Try: sudo dkms autoinstall -k <kernel>"
+else
+    echo "==> All DKMS modules OK."
+fi
+exit 0

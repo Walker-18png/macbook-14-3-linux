@@ -7,7 +7,8 @@ Everything that took work to get running on a 2016 MacBook Pro (T1 chip, 14,3) u
 | Touch Bar | Function row shows and keys work (AJ-dev-i60 driver, Arch port) | [touchbar/](touchbar/README.md) |
 | Speakers | Internal speakers, via the CS8409 Apple driver (AUR) | [audio/](audio/README.md) |
 | Wi-Fi | 5 GHz networks show up (board NVRAM file) | [wifi/](wifi/README.md) |
-| Sleep and graphics | Lid sleep and lid wake (s2idle), Intel on the panel, Radeon off, Thunderbolt and USB-C survive sleep | [power/](power/README.md) |
+| Sleep and graphics | Lid sleep, key-press wake (s2idle), Intel on the panel, Radeon off, Thunderbolt and USB-C survive sleep | [power/](power/README.md) |
+| Kernel updates | A kernel upgrade that would break a DKMS driver aborts before it installs | [kernel-updates/](kernel-updates/README.md) |
 
 Tested on MacBookPro14,3, Arch Linux, kernel 7.2.9-arch1-1.
 
@@ -20,6 +21,7 @@ Authorship: Claude (Anthropic) wrote almost all of this kit: the installer scrip
    `cd audio && ./install-audio.sh`, then reboot.
 3. **Touch Bar.** `cd touchbar && sudo ./install-arch.sh`, then reboot.
 4. **Sleep and graphics.** `cd power && sudo ./install-power.sh --dgpu-off`, set `AQ_DRM_DEVICES`, then reboot.
+5. **Kernel updates.** `cd kernel-updates && sudo ./install-kernel-updates.sh`.
 
 Each folder has its own README with verify steps, troubleshooting, and removal.
 

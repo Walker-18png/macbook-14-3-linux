@@ -33,6 +33,8 @@ After the reboot, the function row should show. Hold fn for F1 to F12, or releas
 2. Builds and installs the driver (`apple-ib-drv` 0.1) with DKMS.
 3. Writes `/etc/modprobe.d/apple-touchbar.conf`, which sets `skip_acpi_power=1`. This is required.
    Without it, loading the module runs `ASOC.SOCW(1)` and freezes the T1.
+   Also blacklists `appletbdrm`, the T2 Touch Bar driver: on a T1 it fails its probe (-11) on the
+   iBridge display interface.
 4. Adds a udev rule that puts the iBridge in USB configuration 1, and a modules-load entry so the
    driver loads at boot.
 5. Loads the driver and prints a short self-check.

@@ -59,6 +59,7 @@ Touch Bar to survive sleep; its driver carries the resume fix.
 | USB-C ports ignore a plug-in | Apple's `_OSC` withholds native PME, so the runtime-suspended Alpine Ridge xHCIs never wake | `pcie_ports=native` on the kernel line. Fallback without it: `udev/63-tb-xhci-awake.rules` |
 | Wi-Fi gone after wake, `brcmf` dcmd timeouts until reboot | The BCM43602 firmware hangs across s2idle | Hook unloads `brcmfmac` before sleep and reloads it after wake |
 | Wi-Fi and Thunderbolt dead after wake | Firmware won't bring them back from D3cold | Hook pins them powered during sleep, restores runtime PM after |
+| Wake stalls for seconds per Thunderbolt controller | During resume a bridge's Primary Bus register can still read 0, so ACPICA maps Apple's UPSB config regions onto host bridge 00:00.0 and the firmware polls the wrong device | `acpi-bridge-bus` (DKMS) keeps the parent-derived bus. Carry of ACPICA PR #1235 (omarchy-pkgs #544, patch 0771) |
 | Fans run at 2000 rpm and the keyboard stays lit while asleep | The SMC keeps them going in s2idle | Hook stops fans below 85 °C and turns the backlight off |
 | Spurious wakes | The T1 iBridge is a wake source | `udev/62-t1-no-wakeup.rules` |
 | Touch Bar stays dark after wake | s2idle calls `.resume`, the driver only had `.reset_resume`, and its resume test needed a display interface the T1 lacks | Patched in `touchbar/apple-ib-drv/apple-touchbar.c` |
@@ -80,6 +81,7 @@ In s2idle the machine draws about 11 W. That is the platform's floor: the packag
 | `/etc/modprobe.d/no-amdgpu.conf`, `/etc/dracut.conf.d/zz-no-gpu-in-initrd.conf` | `conf/` |
 | `/etc/udev/rules.d/61-gpu-names.rules` (`/dev/dri/intel`, `/dev/dri/radeon`), `62-…`, `63-…` | `udev/` |
 | `/usr/src/tb-lc-keep-1.0` (DKMS) | `tb-lc-keep/` |
+| `/usr/src/acpi-bridge-bus-1.0` (DKMS) | `acpi-bridge-bus/` |
 
 ## Verify
 
@@ -89,6 +91,7 @@ sudo cat /sys/kernel/debug/vgaswitcheroo/switch       # IGD :+, DIS :Off (with -
 ls /sys/class/drm | grep eDP                          # card?-eDP-1 on the Intel card
 grep ^EC /proc/acpi/wakeup                            # *enabled after the first sleep
 cat /sys/module/tb_lc_keep/parameters/skipped         # goes up by 2 per sleep
+cat /sys/module/acpi_bridge_bus/parameters/{kept,fixed}  # reads checked, reads corrected
 journalctl -t mac-sleep -b                            # battery at sleep/wake, panel on
 ```
 

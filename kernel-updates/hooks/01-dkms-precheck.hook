@@ -1,0 +1,12 @@
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Package
+Target = linux-headers
+
+[Action]
+Description = Test-building DKMS modules against the new kernel...
+When = PreTransaction
+Exec = /usr/local/bin/dkms-precheck
+NeedsTargets
+AbortOnFail

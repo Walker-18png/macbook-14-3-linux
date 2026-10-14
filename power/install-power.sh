@@ -74,6 +74,14 @@ dkms status tb-lc-keep/1.0 2>/dev/null | grep -q . && run dkms remove tb-lc-keep
 run dkms install tb-lc-keep/1.0
 run sh -c 'echo tb_lc_keep > /etc/modules-load.d/tb-lc-keep.conf'
 
+echo "== 4b. Faster Thunderbolt resume: acpi-bridge-bus (DKMS)"
+# Carry of ACPICA PR #1235: firmware stops polling the wrong PCI device for seconds per controller on wake.
+run rm -rf /usr/src/acpi-bridge-bus-1.0
+run cp -r "$REPO/acpi-bridge-bus" /usr/src/acpi-bridge-bus-1.0
+dkms status acpi-bridge-bus/1.0 2>/dev/null | grep -q . && run dkms remove acpi-bridge-bus/1.0 --all
+run dkms install acpi-bridge-bus/1.0
+run sh -c 'echo acpi_bridge_bus > /etc/modules-load.d/acpi-bridge-bus.conf'
+
 echo "== 5. Kernel line: pcie_ports=native (USB-C hotplug)"
 if [ -f /etc/kernel/cmdline ]; then
   if grep -qw pcie_ports=native /etc/kernel/cmdline; then

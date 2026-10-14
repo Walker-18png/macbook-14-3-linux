@@ -66,6 +66,7 @@ run depmod -a
 
 say "Writing configs. skip_acpi_power=1 comes first: without it the module runs ASOC.SOCW(1) and freezes a T1 at load."
 run install -m644 "$REPO/apple-ib-drv/packaging/apple-touchbar.modprobe.conf" /etc/modprobe.d/apple-touchbar.conf
+run install -m644 "$REPO/apple-ib-drv/packaging/blacklist-appletbdrm.conf" /etc/modprobe.d/blacklist-appletbdrm.conf
 run install -m644 "$REPO/apple-ib-drv/packaging/99-ibridge.rules" /etc/udev/rules.d/99-ibridge.rules
 run install -m644 "$REPO/apple-ib-drv/packaging/apple-touchbar.modules-load.conf" /etc/modules-load.d/apple-touchbar.conf
 run udevadm control --reload
