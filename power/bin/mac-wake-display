@@ -1,0 +1,18 @@
+#!/bin/sh
+# Started by the mac-sleep hook after wake, as the Hyprland user.
+# The hook killed hypridle before sleep, so nothing turns the panel off again.
+for sig in $(ls -t "$XDG_RUNTIME_DIR/hypr" 2>/dev/null); do
+  export HYPRLAND_INSTANCE_SIGNATURE=$sig
+  hyprctl version >/dev/null 2>&1 && break
+done
+sleep 2
+# Lua configs (hyprland.lua) take Lua dispatch expressions. The string form
+# hl.dsp.dpms("on") ignores its argument and TOGGLES, so use the table form.
+if [ -f "$(getent passwd "$(id -u)" | cut -d: -f6)/.config/hypr/hyprland.lua" ]; then
+  hyprctl dispatch 'hl.dsp.dpms({action = "on"})' >/dev/null
+  pgrep -x hypridle >/dev/null || hyprctl dispatch 'hl.dsp.exec_cmd("hypridle")' >/dev/null
+else
+  hyprctl dispatch dpms on >/dev/null
+  pgrep -x hypridle >/dev/null || hyprctl dispatch exec hypridle >/dev/null
+fi
+logger -t mac-sleep "panel on, hypridle running"

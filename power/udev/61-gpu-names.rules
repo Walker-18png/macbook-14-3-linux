@@ -1,0 +1,6 @@
+# Stable names; card numbers shift between boots.
+SUBSYSTEM=="drm", KERNEL=="card*", KERNELS=="0000:00:02.0", SYMLINK+="dri/intel"
+SUBSYSTEM=="drm", KERNEL=="card*", KERNELS=="0000:01:00.0", SYMLINK+="dri/radeon"
+# Let the Radeon power down when nothing uses it.
+SUBSYSTEM=="pci", KERNEL=="0000:01:00.0", ATTR{power/control}="auto"
+SUBSYSTEM=="pci", KERNEL=="0000:01:00.1", ATTR{power/control}="auto"

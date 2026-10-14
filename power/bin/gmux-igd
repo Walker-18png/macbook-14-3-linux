@@ -1,0 +1,44 @@
+#!/usr/bin/python3 -I
+# Route the MacBookPro14,3 panel to the Intel GPU through gmux before i915
+# loads, so a boot after macOS (which resets gpu-power-prefs to the dGPU)
+# still lights eDP-1. Indexed gmux protocol from drivers/platform/x86/apple-gmux.c.
+# Usage: gmux-igd status | igd
+import os, sys, time
+BASE = 0x700
+VALUE, READ, WRITE = 0xc2, 0xd0, 0xd4
+DISPLAY, DDC, EXTERNAL, BRIGHT = 0x10, 0x28, 0x40, 0x74
+fd = os.open("/dev/port", os.O_RDWR)
+def inb(p): return os.pread(fd, 1, BASE + p)[0]
+def outb(v, p): os.pwrite(fd, bytes([v]), BASE + p)
+def inl(p): return int.from_bytes(os.pread(fd, 4, BASE + p), "little")
+def wait_ready():
+    for _ in range(200):
+        if not inb(WRITE) & 1: return
+        inb(READ); time.sleep(0.0001)
+    sys.exit("gmux: not ready")
+def wait_complete():
+    for _ in range(200):
+        if inb(WRITE) & 1:
+            inb(READ); return
+        time.sleep(0.0001)
+    sys.exit("gmux: no completion")
+def read8(port):
+    wait_ready(); outb(port, READ); wait_complete(); return inb(VALUE)
+def read32(port):
+    wait_ready(); outb(port, READ); wait_complete(); return inl(VALUE)
+def write8(port, v):
+    outb(v, VALUE); wait_ready(); outb(port, WRITE); wait_complete()
+def state():
+    return {"ddc": read8(DDC), "display": read8(DISPLAY), "external": read8(EXTERNAL)}
+cmd = sys.argv[1] if len(sys.argv) > 1 else "status"
+if cmd == "status":
+    print("brightness", read32(BRIGHT), state(), "(panel on Intel = ddc 1, display 2)")
+elif cmd == "igd":
+    s = state()
+    # External ports stay on the Radeon (Thunderbolt DP is wired to it).
+    if s["ddc"] == 1 and s["display"] == 2:
+        print("already IGD"); sys.exit(0)
+    write8(DDC, 1); write8(DISPLAY, 2)
+    print("switched to IGD from", s, "now", state())
+else:
+    sys.exit("usage: gmux-igd status|igd")

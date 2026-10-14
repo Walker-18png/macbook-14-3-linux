@@ -1,0 +1,23 @@
+#!/bin/sh
+# MacBookPro14,3: macOS (or a PRAM reset) puts EFI gpu-power-prefs back on the
+# Radeon. Apple firmware reads it at power-on, so this boot already lost the
+# panel (i915 "disabling eDP"). Write the Intel value back and say so on the
+# console login screen; the next boot gets the desktop again.
+V=${GPU_PREFS_VAR:-/sys/firmware/efi/efivars/gpu-power-prefs-fa4ce28d-b62f-4c99-9cc3-6815686e30f9}
+WANT="07 00 00 00 01 00 00 00"
+rm -f /etc/issue.d/gpu-prefs.issue
+have=$(od -An -tx1 "$V" 2>/dev/null | tr -s ' ' | sed 's/^ //;s/ $//')
+# Byte 3 holds the runtime-access flag the kernel adds on read; ignore it.
+case "$have" in
+  "07 00 00 "??" 01 00 00 00") exit 0 ;;
+esac
+[ -e "$V" ] && chattr -i "$V"
+printf '\x07\x00\x00\x00\x01\x00\x00\x00' > "$V" && chattr +i "$V"
+logger -t gpu-prefs-guard "gpu-power-prefs was '$have', set back to Intel; reboot needed"
+mkdir -p /etc/issue.d
+cat > /etc/issue.d/gpu-prefs.issue <<'MSG'
+
+  gpu-power-prefs was reset (macOS boot or PRAM reset) and is fixed now.
+  If the panel stayed dark, reboot, hold Option and pick Linux.
+
+MSG

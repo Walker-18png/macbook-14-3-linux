@@ -1,0 +1,74 @@
+#!/bin/sh
+# MacBookPro14,3 sleep hook (systemd system-sleep). s2idle only.
+# pre:  keep Wi-Fi, Thunderbolt and USB-C powered (Apple firmware won't bring
+#       them back from D3cold), make the EC a wake source so opening the lid
+#       wakes the machine, stop the fans and keyboard backlight, unbind amdgpu
+#       if it is bound and the Radeon is still on.
+# post: undo the above and turn the panel back on (Hyprland only).
+case "$1" in
+pre)
+  logger -t mac-sleep "battery $(cat /sys/class/power_supply/BAT0/charge_now) uAh at sleep"
+  for d in /sys/bus/pci/devices/*; do
+    case "$(cat $d/class)" in
+      0x028000|0x088000|0x0c0330|0x060400)
+        [ -w $d/d3cold_allowed ] && echo 0 > $d/d3cold_allowed
+        echo "$d $(cat $d/power/control)" >> /run/pci-control.saved
+        echo on > $d/power/control ;;
+    esac
+  done
+  # Lid open reaches Linux only as an EC query (_Q20). LID0's own wake GPE
+  # (0x6F) never fires. Writing to /proc/acpi/wakeup toggles, so only write
+  # when the EC is off.
+  if grep -q "^EC.*disabled" /proc/acpi/wakeup; then
+    echo EC > /proc/acpi/wakeup && logger -t mac-sleep "EC wake enabled"
+  fi
+  # hypridle's dpms-off timer fires right after wake and fights the panel.
+  # The lock already ran on PrepareForSleep. mac-wake-display restarts it.
+  pkill -x hypridle
+  systemctl stop mac-wake-display.service 2>/dev/null
+  # The SMC holds both fans at 2000 rpm in s2idle. Stop them unless hot.
+  smc=/sys/devices/platform/applesmc.768
+  hot=$(cat /sys/class/thermal/thermal_zone*/temp | sort -n | tail -1)
+  if [ -e $smc/fan1_manual ] && [ "$(cat $smc/fan1_manual $smc/fan2_manual)" = "0
+0" ] && [ "$hot" -lt 85000 ]; then
+    for f in 1 2; do echo 1 > $smc/fan${f}_manual; echo 0 > $smc/fan${f}_output; done
+    touch /run/fans-stopped
+  fi
+  # The keyboard backlight stays lit in s2idle.
+  kbd=/sys/class/leds/spi::kbd_backlight/brightness
+  cat $kbd > /run/kbd-backlight.saved 2>/dev/null && echo 0 > $kbd
+  # amdgpu cannot reload the Radeon's SMU firmware after sleep.
+  dev=0000:01:00.0
+  if grep -q "^.:DIS: :Off:" /sys/kernel/debug/vgaswitcheroo/switch 2>/dev/null; then
+    :
+  elif [ -e /sys/bus/pci/drivers/amdgpu/$dev ]; then
+    if fuser -s /dev/dri/radeon /dev/dri/by-path/pci-$dev-render 2>/dev/null; then
+      logger -t mac-sleep "Radeon in use, leaving amdgpu bound"
+    else
+      echo $dev > /sys/bus/pci/drivers/amdgpu/unbind && logger -t mac-sleep "amdgpu unbound"
+    fi
+  fi
+  ;;
+post)
+  logger -t mac-sleep "battery $(cat /sys/class/power_supply/BAT0/charge_now) uAh at wake"
+  if [ -f /run/pci-control.saved ]; then
+    while read -r d c; do echo "$c" > "$d/power/control"; done < /run/pci-control.saved
+    rm -f /run/pci-control.saved
+  fi
+  if [ -f /run/fans-stopped ]; then
+    for f in 1 2; do echo 0 > /sys/devices/platform/applesmc.768/fan${f}_manual; done
+    rm -f /run/fans-stopped
+  fi
+  [ -f /run/kbd-backlight.saved ] && cat /run/kbd-backlight.saved > /sys/class/leds/spi::kbd_backlight/brightness
+  # Panel on and hypridle back, as the user who runs Hyprland.
+  hypr=$(ls -dt /run/user/*/hypr 2>/dev/null | head -1)
+  if [ -n "$hypr" ] && command -v hyprctl >/dev/null; then
+    uid=$(stat -c %u "$hypr")
+    systemctl stop mac-wake-display.service 2>/dev/null
+    systemd-run --no-block --quiet --unit=mac-wake-display --collect \
+      --uid=$uid --setenv=XDG_RUNTIME_DIR=/run/user/$uid \
+      /usr/local/bin/mac-wake-display
+  fi
+  ;;
+esac
+exit 0

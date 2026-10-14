@@ -1,0 +1,6 @@
+#!/bin/sh
+set -e
+[ -f /etc/modprobe.d/no-amdgpu.conf.off ] && mv /etc/modprobe.d/no-amdgpu.conf.off /etc/modprobe.d/no-amdgpu.conf
+rm -f /etc/modules-load.d/amdgpu.conf
+systemctl disable dgpu-off.service
+echo "Disabled. amdgpu stays unloaded from next boot."

@@ -1,0 +1,13 @@
+[Unit]
+Description=Route the MacBookPro14,3 panel to the Intel GPU via gmux before i915 loads
+DefaultDependencies=no
+After=systemd-remount-fs.service
+Before=systemd-udev-trigger.service gpu-prefs-guard.service
+ConditionPathExists=/dev/port
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/gmux-igd igd
+
+[Install]
+WantedBy=sysinit.target

@@ -1405,8 +1405,14 @@ static int appletb_reset_resume(struct hid_device *hdev)
 	if (iface_info)
 		iface_info->suspended = false;
 
-	if ((tb_dev->mode_iface.hdev && !tb_dev->mode_iface.suspended) &&
-	    (tb_dev->disp_iface.hdev && !tb_dev->disp_iface.suspended)) {
+	/*
+	 * Same rule as probe: a T1 runs with the mode interface alone, so a
+	 * missing display interface must not block the restore (suspend already
+	 * treats it as suspended).
+	 */
+	if (tb_dev->mode_iface.hdev && !tb_dev->mode_iface.suspended &&
+	    (tb_dev->is_t1 || tb_dev->disp_iface.hdev) &&
+	    (!tb_dev->disp_iface.hdev || !tb_dev->disp_iface.suspended)) {
 		/*
 		 * Restore touch bar state. Note that autopm state is not
 		 * preserved, so need explicitly restore that here.
@@ -1471,6 +1477,7 @@ static struct hid_driver appletb_hid_driver = {
 	.input_configured = appletb_input_configured,
 #ifdef CONFIG_PM
 	.suspend = appletb_suspend,
+	.resume = appletb_reset_resume, /* s2idle: USB not reset, so plain resume is called */
 	.reset_resume = appletb_reset_resume,
 #endif
 };

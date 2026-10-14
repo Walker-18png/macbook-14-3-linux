@@ -1,0 +1,7 @@
+# Fallback for USB-C hotplug when pcie_ports=native is not on the kernel line.
+# Apple's _OSC withholds native PME, so a runtime-suspended Alpine Ridge xHCI
+# (8086:15d4) never hears a plug-in. Keep both awake instead.
+IMPORT{cmdline}="pcie_ports"
+ENV{pcie_ports}=="native", GOTO="tb_xhci_end"
+ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x8086", ATTR{device}=="0x15d4", ATTR{power/control}="on"
+LABEL="tb_xhci_end"

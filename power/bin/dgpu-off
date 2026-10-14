@@ -1,0 +1,16 @@
+#!/bin/sh
+# Power the Radeon off through gmux (vga_switcheroo).
+# amdgpu stays blacklisted so udev never autoloads it; we load it by name only
+# after i915 has registered, so Intel keeps the connector name eDP-1 (DRM
+# numbers connectors in probe order; amdgpu first made the panel eDP-2).
+# Intel drives the panel; the Radeon idles ungated at about 10 W otherwise.
+# Route from wiki.t2linux.org/guides/hybrid-graphics. gmux OFF plus deep S3
+# rebooted this Mac on wake; gmux OFF plus s2idle works.
+for i in $(seq 1 30); do ls /sys/class/drm/ | grep -q eDP && break; sleep 1; done
+modprobe amdgpu || { logger -t dgpu-off "modprobe amdgpu failed"; exit 0; }
+SW=/sys/kernel/debug/vgaswitcheroo/switch
+for i in $(seq 1 30); do [ -e $SW ] && grep -q "^.:DIS:" $SW && break; sleep 1; done
+[ -e $SW ] || { logger -t dgpu-off "no vgaswitcheroo, leaving Radeon on"; exit 0; }
+grep -q "^.:IGD:+" $SW || { logger -t dgpu-off "Intel not active, leaving Radeon on"; exit 0; }
+echo OFF > $SW
+logger -t dgpu-off "$(tr "\n" " " < $SW)"

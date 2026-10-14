@@ -1,0 +1,85 @@
+# Sleep and hybrid graphics
+
+Makes the MacBookPro14,3 sleep when you close the lid and wake when you open it, with the Intel
+GPU on the panel and the Radeon off. Wi-Fi, Thunderbolt, USB-C and the Touch Bar all come back
+after wake.
+
+Tested on MacBookPro14,3, EndeavourOS (Arch), kernel 7.2.9-arch1-1, Hyprland with hypridle.
+
+## Install
+
+```sh
+cd power
+sudo ./install-power.sh --dgpu-off     # leave out --dgpu-off to keep the Radeon powered
+```
+
+Then set `AQ_DRM_DEVICES` as the installer says, and reboot. Hold Option at the chime and pick Linux:
+a plain reboot may land in macOS. Install [touchbar/](../touchbar/README.md) first if you want the
+Touch Bar to survive sleep; its driver carries the resume fix.
+
+`--dry-run` prints the steps. `sudo ./uninstall-power.sh` removes everything.
+
+## What it fixes
+
+| Problem | Cause | Fix |
+|---|---|---|
+| Deep sleep (S3) and hibernate wake to a black or console screen, or reboot | Apple firmware re-POSTs the Radeon only at cold boot; amdgpu fails "SMU load firmware". Wi-Fi firmware and Thunderbolt die in S3 too | `conf/s2idle.conf`: s2idle only |
+| Opening the lid doesn't wake the machine; only a key press does | The lid reports through the embedded controller (EC query `_Q20`), and Linux leaves the EC disabled in `/proc/acpi/wakeup`. LID0's own wake GPE (0x6F) never fires | `mac-sleep` hook enables EC wake before each sleep |
+| Panel on the Radeon, Radeon can't sleep | EFI variable `gpu-power-prefs` picks the GPU at power-on | `gpu-prefs-guard` keeps it on Intel at every boot |
+| After a macOS boot, Linux shows a console only (i915 "disabling eDP") | macOS resets `gpu-power-prefs` to the Radeon | `gmux-igd` switches the gmux mux to Intel before i915 loads, so this boot still gets the panel |
+| Panel shows up as eDP-2, scripts that use eDP-1 break | amdgpu probed first and took the eDP-1 name | amdgpu blacklisted from autoload; `dgpu-off` loads it by name after i915 |
+| Radeon idles at about 10 W with no driver | Driverless Radeon stays in D0, ungated | `dgpu-off` powers it off through vga_switcheroo. Idle draw drops from about 23 W to 12 W |
+| Thunderbolt and USB-C gone after the first sleep (`tb_cfg_read: -108`) | The kernel sets the LC sleep bit on the host routers and the chip stops answering | `tb-lc-keep` (DKMS) skips that call in s2idle only. Carry of omarchy-pkgs PR #596 patch 0664 |
+| USB-C ports ignore a plug-in | Apple's `_OSC` withholds native PME, so the runtime-suspended Alpine Ridge xHCIs never wake | `pcie_ports=native` on the kernel line. Fallback without it: `udev/63-tb-xhci-awake.rules` |
+| Wi-Fi and Thunderbolt dead after wake | Firmware won't bring them back from D3cold | Hook pins them powered during sleep, restores runtime PM after |
+| Fans run at 2000 rpm and the keyboard stays lit while asleep | The SMC keeps them going in s2idle | Hook stops fans below 85 °C and turns the backlight off |
+| Spurious wakes | The T1 iBridge is a wake source | `udev/62-t1-no-wakeup.rules` |
+| Touch Bar stays dark after wake | s2idle calls `.resume`, the driver only had `.reset_resume`, and its resume test needed a display interface the T1 lacks | Patched in `touchbar/apple-ib-drv/apple-touchbar.c` |
+| Hyprland: panel goes dark or flashes after wake | With a Lua config, `hl.dsp.dpms("on")` ignores its argument and toggles | Use `hl.dsp.dpms({action = "on"})` in hypridle.conf. `mac-wake-display` does |
+
+In s2idle the machine draws about 11 W. That is the platform's floor: the package never gets past PC3.
+
+## Files
+
+| Installed as | From |
+|---|---|
+| `/usr/lib/systemd/system-sleep/mac-sleep` | `bin/mac-sleep` |
+| `/usr/local/bin/mac-wake-display` | `bin/mac-wake-display` |
+| `/usr/local/bin/gmux-igd` + `gmux-igd.service` | `bin/`, `systemd/` |
+| `/usr/local/bin/gpu-prefs-guard` + `gpu-prefs-guard.service` | `bin/`, `systemd/` |
+| `/usr/local/bin/dgpu-off{,-enable,-disable}` + `dgpu-off.service` | `bin/`, `systemd/` (with `--dgpu-off`) |
+| `/etc/systemd/sleep.conf.d/s2idle.conf`, `/etc/systemd/logind.conf.d/lid.conf` | `conf/` |
+| `/etc/modprobe.d/no-amdgpu.conf`, `/etc/dracut.conf.d/zz-no-gpu-in-initrd.conf` | `conf/` |
+| `/etc/udev/rules.d/61-gpu-names.rules` (`/dev/dri/intel`, `/dev/dri/radeon`), `62-…`, `63-…` | `udev/` |
+| `/usr/src/tb-lc-keep-1.0` (DKMS) | `tb-lc-keep/` |
+
+## Verify
+
+```sh
+cat /sys/power/mem_sleep                              # [s2idle]
+sudo cat /sys/kernel/debug/vgaswitcheroo/switch       # IGD :+, DIS :Off (with --dgpu-off)
+ls /sys/class/drm | grep eDP                          # card?-eDP-1 on the Intel card
+grep ^EC /proc/acpi/wakeup                            # *enabled after the first sleep
+cat /sys/module/tb_lc_keep/parameters/skipped         # goes up by 2 per sleep
+journalctl -t mac-sleep -b                            # battery at sleep/wake, panel on
+```
+
+Test sleep without the lid: `sudo rtcwake -m no -s 45 && systemctl suspend` wakes after 45 s.
+
+## Gotchas
+
+- `/proc/acpi/wakeup` toggles on each write. Check the state before you write, as the hook does.
+  Don't put it in tmpfiles.d: pacman hooks re-run tmpfiles and switch it back off.
+- Never `modprobe amdgpu` by hand while Hyprland runs. Hyprland grabs the Radeon's phantom eDP.
+- Never `modprobe -r apple_touchbar` live: kernel Oops.
+- An early boot unit ordered before `systemd-udev-trigger` must not order after `local-fs.target`.
+  The first `gmux-igd.service` did, and boot hung 90 s on the EFI mount before emergency mode.
+- The Mac's boot picker is Apple's. You can't edit the kernel line at boot, so test new
+  parameters on a separate boot entry first. In emergency mode, Ctrl+D continues the boot.
+- The power button taps as poweroff, not sleep.
+
+## Not working
+
+- Deep S3 and hibernate. Both fail on the Radeon, and S3 with the Radeon off rebooted the machine.
+- `gmux-igd` after a macOS visit is the least tested part: it should give a normal login screen.
+  If the panel stays dark, reboot once; `gpu-prefs-guard` has fixed the variable by then.

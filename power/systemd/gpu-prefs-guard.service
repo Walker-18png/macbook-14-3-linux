@@ -1,0 +1,11 @@
+[Unit]
+Description=Keep EFI gpu-power-prefs on the Intel GPU
+After=local-fs.target
+Before=getty@tty1.service display-manager.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/gpu-prefs-guard
+
+[Install]
+WantedBy=multi-user.target

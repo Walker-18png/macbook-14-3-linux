@@ -1,0 +1,11 @@
+[Unit]
+Description=Power off the unused Radeon via gmux
+After=systemd-modules-load.service
+Before=display-manager.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/dgpu-off
+
+[Install]
+WantedBy=multi-user.target
