@@ -51,6 +51,10 @@ dmesg | grep -i apple-touchbar.*input   # Touch Bar input created
   first. Check with `systemctl is-active usbmuxd`. If you don't tether iPhones or iPads, run
   `sudo systemctl mask usbmuxd` and reboot. Otherwise remove the `05ac.*8600` line from
   `/lib/udev/rules.d/39-usbmuxd.rules` and reboot.
+- **Bar lit after sleep, taps do nothing.** `evtest` shows only `KEY_UNKNOWN` (240) per tap. The
+  driver thought the bar was still off: sleep set its mode to OFF, and the T1 mode-set returns the
+  byte count, which the driver never counted as success. Fixed in this source; rebuild with DKMS
+  and reboot. Older builds recover only by reboot.
 - **`tainting kernel` in dmesg.** Expected with Secure Boot off. The module is self-signed.
 - **Install fails at build.** Check that `linux-headers` matches `uname -r`. The driver source
   targets kernel 7.x. Report the kernel version with the build error.

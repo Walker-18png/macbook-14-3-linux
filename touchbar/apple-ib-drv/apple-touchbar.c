@@ -272,6 +272,13 @@ static int appletb_set_tb_mode(struct appletb_device *tb_dev,
 	if (rc < 0)
 		dev_err(tb_dev->log_dev,
 			"Failed to set touch bar mode to %u (%d)\n", mode, rc);
+	/*
+	 * usb_control_msg and hid_hw_raw_request return the bytes sent. The
+	 * worker records the new mode only on 0, so without this the T1 stays
+	 * at MODE_OFF after a sleep and every tap becomes KEY_UNKNOWN.
+	 */
+	else
+		rc = 0;
 
 	if (autopm_off)
 		hid_hw_power(tb_dev->mode_iface.hdev, PM_HINT_NORMAL);

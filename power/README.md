@@ -61,6 +61,7 @@ Touch Bar to survive sleep; its driver carries the resume fix.
 | Fans run at 2000 rpm and the keyboard stays lit while asleep | The SMC keeps them going in s2idle | Hook stops fans below 85 °C and turns the backlight off |
 | Spurious wakes | The T1 iBridge is a wake source | `udev/62-t1-no-wakeup.rules` |
 | Touch Bar stays dark after wake | s2idle calls `.resume`, the driver only had `.reset_resume`, and its resume test needed a display interface the T1 lacks | Patched in `touchbar/apple-ib-drv/apple-touchbar.c` |
+| Touch Bar lit after wake, taps send `KEY_UNKNOWN` | Sleep marks the bar OFF; the T1 mode-set returns 1 (bytes sent) and the driver records the new mode only on 0 | Patched in `touchbar/apple-ib-drv/apple-touchbar.c` |
 | Hyprland: panel goes dark or flashes after wake | With a Lua config, `hl.dsp.dpms("on")` ignores its argument and toggles | Use `hl.dsp.dpms({action = "on"})` in hypridle.conf. `mac-wake-display` does |
 
 In s2idle the machine draws about 11 W. That is the platform's floor: the package never gets past PC3.
