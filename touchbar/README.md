@@ -72,11 +72,12 @@ values without rebooting, write them to `idle_timeout` and `dim_timeout` under
   driver thought the bar was still off: sleep set its mode to OFF, and the T1 mode-set returns the
   byte count, which the driver never counted as success. Fixed in this source; rebuild with DKMS
   and reboot. Older builds recover only by reboot.
-- **Bar dark after waking from hibernate, or never dims.** Builds before the T1 display fix threw
-  away every display command, so nothing could switch the bar's display back on after a
-  hibernate, and dimming did nothing. Fixed in this source (dimming confirmed on a
-  MacBookPro14,3; the hibernate case relies on the same fix but is not yet confirmed). Rebuild
-  with DKMS, rebuild the initramfs, and reboot.
+- **Bar never dims or turns off.** Builds before the T1 display fix threw away every display
+  command, so `dim_timeout` and `idle_timeout` did nothing. Fixed in this source (confirmed on a
+  MacBookPro14,3). Rebuild with DKMS, rebuild the initramfs, and reboot.
+- **Bar dark after waking from hibernate.** The ACPI S4 wake leaves the T1's display off, and no
+  driver command brings it back. Hibernate with `HibernateMode=shutdown` instead; the power
+  installer sets it ([power/](../power/README.md#hibernate)). A dark bar now needs a reboot.
 - **`tainting kernel` in dmesg.** Expected with Secure Boot off. The module is self-signed.
 - **Install fails at build.** Check that `linux-headers` matches `uname -r`. The driver source
   targets kernel 7.x. Report the kernel version with the build error.

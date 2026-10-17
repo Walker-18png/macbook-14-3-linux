@@ -39,6 +39,10 @@ pre)
     for f in 1 2; do echo 1 > $smc/fan${f}_manual; echo 0 > $smc/fan${f}_output; done
     touch /run/fans-stopped
   fi
+  # mac-hibernate asked for one s2idle cycle first: wake again after 3 s.
+  if [ "$2" = suspend ] && ls /run/user/*/mac-hibernate-prep >/dev/null 2>&1; then
+    rtcwake -m no -s 3 >/dev/null
+  fi
   # The keyboard backlight stays lit in s2idle.
   kbd=/sys/class/leds/spi::kbd_backlight/brightness
   cat $kbd > /run/kbd-backlight.saved 2>/dev/null && echo 0 > $kbd
@@ -69,6 +73,12 @@ post)
     rm -f /run/fans-stopped
   fi
   [ -f /run/kbd-backlight.saved ] && cat /run/kbd-backlight.saved > /sys/class/leds/spi::kbd_backlight/brightness
+  # Second half of mac-hibernate: the Radeon is in D3cold now, so hibernate.
+  if ls /run/user/*/mac-hibernate-prep >/dev/null 2>&1; then
+    rm -f /run/user/*/mac-hibernate-prep
+    logger -t mac-sleep "hibernate prep done, Radeon $(cat /sys/bus/pci/devices/0000:01:00.0/power_state), hibernating"
+    systemd-run --no-block --quiet --unit=mac-hibernate --collect --on-active=3 systemctl hibernate
+  fi
   # Panel on and hypridle back, as the user who runs Hyprland.
   hypr=$(ls -dt /run/user/*/hypr 2>/dev/null | head -1)
   if [ -n "$hypr" ] && command -v hyprctl >/dev/null; then

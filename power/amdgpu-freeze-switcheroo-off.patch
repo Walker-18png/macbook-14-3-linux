@@ -1,0 +1,17 @@
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+@@ -2698,6 +2698,14 @@
+ 	struct amdgpu_device *adev = drm_to_adev(drm_dev);
+ 	int r;
+ 
++	/*
++	 * A GPU parked by vga_switcheroo has no power and no PCIe link, so the
++	 * ASIC reset below times out (-EINVAL) and aborts the hibernation.
++	 * Bail out like amdgpu_pmops_suspend_noirq() already does.
++	 */
++	if (drm_dev->switch_power_state == DRM_SWITCH_POWER_OFF)
++		return 0;
++
+ 	r = amdgpu_device_suspend(drm_dev, true);
+ 	if (r)
+ 		return r;

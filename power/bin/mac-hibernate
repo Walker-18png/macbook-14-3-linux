@@ -1,0 +1,12 @@
+#!/bin/sh
+# Hibernate with the Radeon powered off (dgpu-off). amdgpu's freeze callback
+# resets the GPU even when vga_switcheroo has switched it off, and that reset
+# fails at random (amdgpu_pmops_freeze returns -22), which aborts the hibernate
+# back to the lock screen. After one s2idle cycle the Radeon sits in D3cold,
+# where the reset has passed in every test. So unless it is in D3cold already,
+# suspend with a flag: mac-sleep wakes after 3 s and hibernates.
+if [ "$(cat /sys/bus/pci/devices/0000:01:00.0/power_state 2>/dev/null)" = D3cold ]; then
+    exec systemctl hibernate
+fi
+touch "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/mac-hibernate-prep"
+exec systemctl suspend

@@ -128,15 +128,14 @@ diff --git a/apple-touchbar.c b/apple-touchbar.c
 index ff6a849..1f8307f 100644
 --- a/apple-touchbar.c
 +++ b/apple-touchbar.c
-@@ -287,6 +287,15 @@ static int appletb_set_tb_disp(struct appletb_device *tb_dev,
+@@ -287,6 +287,14 @@ static int appletb_set_tb_disp(struct appletb_device *tb_dev,
  	struct hid_report *report;
  	int rc;
  
 +	/*
 +	 * A T1 has a display interface too (iBridge input3, usage ff12.0021).
-+	 * Only it can dim or blank the bar, and after a hibernate only DISP_ON
-+	 * lights the bar again. Skip just when it was not found, so the
-+	 * worker/idle paths never touch a NULL disp_field.
++	 * Only it can dim or blank the bar. Skip just when it was not found,
++	 * so the worker/idle paths never touch a NULL disp_field.
 +	 */
 +	if (tb_dev->is_t1 && !tb_dev->disp_field)
 +		return 0;

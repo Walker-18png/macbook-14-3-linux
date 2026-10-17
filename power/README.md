@@ -49,7 +49,7 @@ Touch Bar to survive sleep; its driver carries the resume fix.
 
 | Problem | Cause | Fix |
 |---|---|---|
-| Deep sleep (S3) and hibernate wake to a black or console screen, or reboot | Apple firmware re-POSTs the Radeon only at cold boot; amdgpu fails "SMU load firmware". Wi-Fi firmware and Thunderbolt die in S3 too | `conf/s2idle.conf`: s2idle only |
+| Deep sleep (S3), and hibernate with the Radeon driven, wake to a black or console screen, or reboot | Apple firmware re-POSTs the Radeon only at cold boot; amdgpu fails "SMU load firmware". Wi-Fi firmware and Thunderbolt die in S3 too | `conf/s2idle.conf`: s2idle only |
 | Opening the lid never wakes the machine | The lid reports through the embedded controller (EC query `_Q20`), and Linux leaves the EC disabled in `/proc/acpi/wakeup`. LID0's own wake GPE (0x6F) never fires | `mac-sleep` hook enables EC wake before each sleep. This helps only for short sleeps: see Not working |
 | Panel on the Radeon, Radeon can't sleep | EFI variable `gpu-power-prefs` picks the GPU at power-on | `gpu-prefs-guard` keeps it on Intel at every boot |
 | After a macOS boot, Linux shows a console only (i915 "disabling eDP") | macOS resets `gpu-power-prefs` to the Radeon | `gmux-igd` switches the gmux mux to Intel before i915 loads, so this boot still gets the panel |
@@ -63,7 +63,9 @@ Touch Bar to survive sleep; its driver carries the resume fix.
 | Fans run at 2000 rpm and the keyboard stays lit while asleep | The SMC keeps them going in s2idle | Hook stops fans below 85 °C and turns the backlight off |
 | Spurious wakes | The T1 iBridge is a wake source | `udev/62-t1-no-wakeup.rules` |
 | Touch Bar stays dark after wake | s2idle calls `.resume`, the driver only had `.reset_resume`, and its resume test required the display interface | Patched in `touchbar/apple-ib-drv/apple-touchbar.c` |
-| Touch Bar stays dark after waking from hibernate | Hibernate power-cycles the T1 and its display comes back off; the driver dropped every T1 display command, so nothing switched it on | Patched in `touchbar/apple-ib-drv/apple-touchbar.c` (T1 display fix; not yet confirmed after a hibernate) |
+| Hibernate aborts back to the lock screen (`amdgpu_pmops_freeze returns -22`) | amdgpu's freeze callback resets the Radeon even when vga_switcheroo has switched it off, and that reset fails at random. Its `suspend_noirq` callback already skips a switched-off GPU | `mac-hibernate` runs one 3 s s2idle cycle first: the Radeon then sits in D3cold, where the reset passed in every test. Kernel fix: `amdgpu-freeze-switcheroo-off.patch` (not upstream, not built) |
+| Hibernate powers off, then the Mac turns itself back on within seconds | `mac-sleep` makes the EC a wake source for lid wake, and the EC can wake the Mac from ACPI S4 | `conf/hibernate.conf`: `HibernateMode=shutdown`, a plain S5 power-off |
+| Touch Bar stays dark after waking from hibernate | The ACPI S4 wake leaves the T1's display off. The driver's mode and display commands are accepted, and even a fresh re-probe (re-applying USB configuration 1) doesn't light it | `conf/hibernate.conf`: from S5 the firmware takes its cold-boot path and the bar comes back. Confirmed on a MacBookPro14,3 |
 | Touch Bar lit after wake, taps send `KEY_UNKNOWN` | Sleep marks the bar OFF; the T1 mode-set returns 1 (bytes sent) and the driver records the new mode only on 0 | Patched in `touchbar/apple-ib-drv/apple-touchbar.c` |
 | Hyprland: panel goes dark or flashes after wake | With a Lua config, `hl.dsp.dpms("on")` ignores its argument and toggles | Use `hl.dsp.dpms({action = "on"})` in hypridle.conf. `mac-wake-display` does |
 
@@ -79,6 +81,7 @@ In s2idle the machine draws about 11 W. That is the platform's floor: the packag
 | `/usr/local/bin/gpu-prefs-guard` + `gpu-prefs-guard.service` | `bin/`, `systemd/` |
 | `/usr/local/bin/dgpu-off{,-enable,-disable}` + `dgpu-off.service` | `bin/`, `systemd/` (with `--dgpu-off`) |
 | `/etc/systemd/sleep.conf.d/s2idle.conf`, `/etc/systemd/logind.conf.d/lid.conf` | `conf/` |
+| `/etc/systemd/sleep.conf.d/hibernate.conf`, `/usr/local/bin/mac-hibernate` | `conf/`, `bin/` |
 | `/etc/modprobe.d/no-amdgpu.conf`, `/etc/dracut.conf.d/zz-no-gpu-in-initrd.conf` | `conf/` |
 | `/etc/udev/rules.d/61-gpu-names.rules` (`/dev/dri/intel`, `/dev/dri/radeon`), `62-…`, `63-…` | `udev/` |
 | `/usr/src/tb-lc-keep-1.0` (DKMS) | `tb-lc-keep/` |
@@ -98,6 +101,27 @@ journalctl -t mac-sleep -b                            # battery at sleep/wake, p
 
 Test sleep without the lid: `sudo rtcwake -m no -s 45 && systemctl suspend` wakes after 45 s.
 
+## Hibernate
+
+Works with `--dgpu-off` (tested on kernel 7.2.10). The installer sets the hibernate mode and adds
+`mac-hibernate`, but it does not set up hibernation itself: you need swap at least as large as
+your RAM and a resume entry for it in the initrd and kernel line. Follow your distro's guide
+(Arch wiki: Power management/Suspend and hibernate).
+
+Hibernate with `mac-hibernate`, not `systemctl hibernate`: bind it to a key or a power-menu entry.
+When the Radeon isn't in D3cold yet (after every boot and every resume from hibernate), it first
+sleeps for 3 s and wakes on its own, then hibernates. Without that cycle the hibernate can abort
+back to the lock screen (see What it fixes). The Mac then powers off fully; press the power
+button to resume.
+
+```sh
+mac-hibernate
+journalctl -t mac-sleep -b | grep 'hibernate prep'   # "Radeon D3cold, hibernating"
+journalctl -k -b | grep 'image restored'              # after the resume
+```
+
+Not tested: hibernate with the Radeon powered and driverless (no `--dgpu-off`).
+
 ## Gotchas
 
 - `/proc/acpi/wakeup` toggles on each write. Check the state before you write, as the hook does.
@@ -112,8 +136,8 @@ Test sleep without the lid: `sudo rtcwake -m no -s 45 && systemctl suspend` wake
 
 ## Not working
 
-- Deep S3 and hibernate. Both fail on the Radeon. S3 with the Radeon off rebooted the machine, and
-  S3 with the Radeon powered and driverless rebooted it into the boot picker.
+- Deep S3. It fails on the Radeon. S3 with the Radeon off rebooted the machine, and S3 with the
+  Radeon powered and driverless rebooted it into the boot picker. Hibernate works: see Hibernate.
 - Lid wake after about a minute of sleep. The lid wakes the machine only if it slept for under
   about a minute (worked at 6 s and 56 s, failed every time from 98 s on). After that, press a key.
   No EC event or wake GPE reaches the host. Our best guess: the SMC drops its lid-wake line

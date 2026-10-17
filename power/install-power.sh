@@ -61,6 +61,8 @@ fi
 echo "== 3. Sleep: s2idle, lid = suspend, wake hook"
 put 644 conf/s2idle.conf /etc/systemd/sleep.conf.d/s2idle.conf
 put 644 conf/lid.conf /etc/systemd/logind.conf.d/lid.conf
+put 644 conf/hibernate.conf /etc/systemd/sleep.conf.d/hibernate.conf
+put 755 bin/mac-hibernate /usr/local/bin/mac-hibernate
 put 755 bin/mac-sleep /usr/lib/systemd/system-sleep/mac-sleep
 put 755 bin/mac-wake-display /usr/local/bin/mac-wake-display
 put 644 udev/62-t1-no-wakeup.rules /etc/udev/rules.d/62-t1-no-wakeup.rules

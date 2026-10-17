@@ -38,9 +38,10 @@ The six fixes (full write-up in the project's kernel-7 guide):
 5. NULL-guard the sparse `sub_hdevs[]` (crash on USB autosuspend).
 6. **Display control on the T1.** The T1 does have a display interface (iBridge input3, usage
    `ff12.0021`, in one report with `ff12.0020`). Earlier builds turned every display command into
-   a no-op on the T1, so `dim_timeout` and `idle_timeout` never dimmed or blanked the bar, and
-   after a hibernate the bar stayed dark until a reboot. Display commands are now sent whenever
-   that interface is present; the no-op remains only when it is missing.
+   a no-op on the T1, so `dim_timeout` and `idle_timeout` never dimmed or blanked the bar.
+   Display commands are now sent whenever that interface is present; the no-op remains only
+   when it is missing. (This does not fix a bar left dark by an ACPI S4 hibernate: see
+   [power/](../../power/README.md#hibernate).)
 
 ## How it's installed
 
