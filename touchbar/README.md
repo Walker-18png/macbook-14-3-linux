@@ -47,6 +47,21 @@ dmesg | grep -i skip_acpi     # "NOT running ASOC.SOCW(1)"
 dmesg | grep -i apple-touchbar.*input   # Touch Bar input created
 ```
 
+## Dim and off when idle
+
+The driver dims the bar and then turns it off after a stretch without keyboard, trackpad, or
+Touch Bar input. Any input brings it back. The defaults are off after 5 minutes and dim shortly
+before that. To change them, add a line to `/etc/modprobe.d/apple-touchbar.conf`:
+
+```
+options apple_touchbar dim_timeout=15 idle_timeout=30
+```
+
+Values are in seconds; `-1` disables that step. The driver is in the initramfs, so rebuild it
+(`sudo reinstall-kernels` on EndeavourOS, `sudo mkinitcpio -P` with mkinitcpio) and reboot. To try
+values without rebooting, write them to `idle_timeout` and `dim_timeout` under
+`/sys/bus/hid/drivers/apple-touchbar/*/`.
+
 ## Troubleshooting
 
 - **Bar still dark after reboot.** `usbmuxd` matches the iBridge in its udev rule and can claim it
@@ -57,6 +72,11 @@ dmesg | grep -i apple-touchbar.*input   # Touch Bar input created
   driver thought the bar was still off: sleep set its mode to OFF, and the T1 mode-set returns the
   byte count, which the driver never counted as success. Fixed in this source; rebuild with DKMS
   and reboot. Older builds recover only by reboot.
+- **Bar dark after waking from hibernate, or never dims.** Builds before the T1 display fix threw
+  away every display command, so nothing could switch the bar's display back on after a
+  hibernate, and dimming did nothing. Fixed in this source (dimming confirmed on a
+  MacBookPro14,3; the hibernate case relies on the same fix but is not yet confirmed). Rebuild
+  with DKMS, rebuild the initramfs, and reboot.
 - **`tainting kernel` in dmesg.** Expected with Secure Boot off. The module is self-signed.
 - **Install fails at build.** Check that `linux-headers` matches `uname -r`. The driver source
   targets kernel 7.x. Report the kernel version with the build error.

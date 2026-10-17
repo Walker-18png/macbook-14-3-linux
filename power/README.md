@@ -62,7 +62,8 @@ Touch Bar to survive sleep; its driver carries the resume fix.
 | Wake stalls for seconds per Thunderbolt controller | During resume a bridge's Primary Bus register can still read 0, so ACPICA maps Apple's UPSB config regions onto host bridge 00:00.0 and the firmware polls the wrong device | `acpi-bridge-bus` (DKMS) keeps the parent-derived bus. Carry of ACPICA PR #1235 (omarchy-pkgs #544, patch 0771) |
 | Fans run at 2000 rpm and the keyboard stays lit while asleep | The SMC keeps them going in s2idle | Hook stops fans below 85 °C and turns the backlight off |
 | Spurious wakes | The T1 iBridge is a wake source | `udev/62-t1-no-wakeup.rules` |
-| Touch Bar stays dark after wake | s2idle calls `.resume`, the driver only had `.reset_resume`, and its resume test needed a display interface the T1 lacks | Patched in `touchbar/apple-ib-drv/apple-touchbar.c` |
+| Touch Bar stays dark after wake | s2idle calls `.resume`, the driver only had `.reset_resume`, and its resume test required the display interface | Patched in `touchbar/apple-ib-drv/apple-touchbar.c` |
+| Touch Bar stays dark after waking from hibernate | Hibernate power-cycles the T1 and its display comes back off; the driver dropped every T1 display command, so nothing switched it on | Patched in `touchbar/apple-ib-drv/apple-touchbar.c` (T1 display fix; not yet confirmed after a hibernate) |
 | Touch Bar lit after wake, taps send `KEY_UNKNOWN` | Sleep marks the bar OFF; the T1 mode-set returns 1 (bytes sent) and the driver records the new mode only on 0 | Patched in `touchbar/apple-ib-drv/apple-touchbar.c` |
 | Hyprland: panel goes dark or flashes after wake | With a Lua config, `hl.dsp.dpms("on")` ignores its argument and toggles | Use `hl.dsp.dpms({action = "on"})` in hypridle.conf. `mac-wake-display` does |
 

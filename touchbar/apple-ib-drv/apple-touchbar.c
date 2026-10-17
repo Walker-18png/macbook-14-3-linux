@@ -295,12 +295,12 @@ static int appletb_set_tb_disp(struct appletb_device *tb_dev,
 	int rc;
 
 	/*
-	 * T1 has no separate display-control interface; the bar is driven
-	 * entirely by the mode-set (appletb_set_tb_mode), so display ops are
-	 * a no-op success here. This keeps the worker/idle paths from hitting
-	 * the NULL disp_field/disp_iface for T1.
+	 * A T1 has a display interface too (iBridge input3, usage ff12.0021).
+	 * Only it can dim or blank the bar, and after a hibernate only DISP_ON
+	 * lights the bar again. Skip just when it was not found, so the
+	 * worker/idle paths never touch a NULL disp_field.
 	 */
-	if (tb_dev->is_t1)
+	if (tb_dev->is_t1 && !tb_dev->disp_field)
 		return 0;
 
 	if (!tb_dev->disp_iface.hdev)

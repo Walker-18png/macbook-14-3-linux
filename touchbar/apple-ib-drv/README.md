@@ -22,7 +22,7 @@ MacBookPro13,x/14,x). The exact delta vs upstream is recorded in `t1-kernel7-fix
 — a **reference diff, already baked into the `.c` sources here** (so the DKMS build needs no
 patching; don't re-apply it — a `patch --dry-run` will correctly report "previously applied").
 
-The five fixes (full write-up in the project's kernel-7 guide):
+The six fixes (full write-up in the project's kernel-7 guide):
 1. **`skip_acpi_power` — safe-by-default freeze guard ⭐** — the `ASOC.SOCW(1)` ACPI power-on
    **hard-freezes** the T1 (confirmed on MacBookPro14,3) at module load *and on resume*. *This is
    the key finding.* The param is tri-state and **defaults to skipping on the T1 family
@@ -33,9 +33,14 @@ The five fixes (full write-up in the project's kernel-7 guide):
    unguarded).
 2. UBSAN out-of-bounds in `appleib_add_device` (index by slot, not collection idx).
 3. `appleib_ll_parse` was a no-op → restored `hid_parse_report` (fixes `-ENODEV` on the sub-device).
-4. T1 activation with the mode interface alone (T1 has no separate display iface) → the firmware
-   renders the row itself.
+4. T1 activation with the mode interface alone (the display interface is not needed to bring the
+   bar up) → the firmware renders the row itself.
 5. NULL-guard the sparse `sub_hdevs[]` (crash on USB autosuspend).
+6. **Display control on the T1.** The T1 does have a display interface (iBridge input3, usage
+   `ff12.0021`, in one report with `ff12.0020`). Earlier builds turned every display command into
+   a no-op on the T1, so `dim_timeout` and `idle_timeout` never dimmed or blanked the bar, and
+   after a hibernate the bar stayed dark until a reboot. Display commands are now sent whenever
+   that interface is present; the no-op remains only when it is missing.
 
 ## How it's installed
 
