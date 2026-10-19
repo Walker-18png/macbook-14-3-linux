@@ -9,6 +9,8 @@ Tested on MacBookPro14,3, EndeavourOS (Arch), kernel 7.2.9-arch1-1, Hyprland wit
 ## Scope: read before you install
 
 We worked this out on one machine. Other 14,3s can differ, so check yours against this list.
+The installer stops on any model other than a MacBookPro14,3 and on a GPU pair other than the one
+below.
 
 | Part | Tested configuration |
 |---|---|
@@ -44,6 +46,38 @@ a plain reboot may land in macOS. Install [touchbar/](../touchbar/README.md) fir
 Touch Bar to survive sleep; its driver carries the resume fix.
 
 `--dry-run` prints the steps. `sudo ./uninstall-power.sh` removes everything.
+
+## Changes that outlast an uninstall
+
+**EFI variable `gpu-power-prefs`.** Step 1 of the installer sets it to the Intel GPU in the Mac's
+NVRAM, and `gpu-prefs-guard` sets it again at every boot. `uninstall-power.sh` stops the guard but
+leaves the variable on Intel, and the Mac keeps booting with the Intel GPU on the panel. The
+installer saved the old value to `/root/gpu-power-prefs.bak` on the first run. To restore it:
+
+```sh
+V=/sys/firmware/efi/efivars/gpu-power-prefs-fa4ce28d-b62f-4c99-9cc3-6815686e30f9
+sudo chattr -i "$V"
+sudo cp /root/gpu-power-prefs.bak "$V"     # no backup file: sudo rm "$V" instead
+```
+
+An NVRAM reset (hold Option+Command+P+R at the chime) also clears it, and macOS sets it again
+whenever it boots.
+
+## Runtime kernel patches
+
+`tb-lc-keep` and `acpi-bridge-bus` are kprobe modules. They do not drive a device: they hook
+internal kernel functions while the kernel runs and change what those functions do.
+
+- `tb-lc-keep` hooks `tb_lc_set_sleep` and returns early for host routers in s2idle. It reads the
+  router from the first argument register and assumes `struct tb_switch` starts with its
+  `struct device`.
+- `acpi-bridge-bus` hooks `acpi_hw_derive_pci_id` and `acpi_os_read_pci_configuration`, reads their
+  arguments from registers, and rewrites one PCI config read.
+
+A missing or renamed function makes the module fail to load, which shows in
+`journalctl -b -u systemd-modules-load`. A changed argument order or struct layout does not: the
+module builds, loads and does the wrong thing. The DKMS precheck only catches build failures.
+Check these two modules against the source of each new kernel series before you trust them.
 
 ## What it fixes
 

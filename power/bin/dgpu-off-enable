@@ -2,7 +2,5 @@
 # Opt in: dgpu-off.service loads amdgpu after i915 (blacklist stays, so udev
 # never loads it first) and switches the Radeon off.
 set -e
-[ -f /etc/modprobe.d/no-amdgpu.conf.off ] && mv /etc/modprobe.d/no-amdgpu.conf.off /etc/modprobe.d/no-amdgpu.conf
-rm -f /etc/modules-load.d/amdgpu.conf
 systemctl enable dgpu-off.service
 echo "Enabled. Takes effect next Linux boot. Undo: dgpu-off-disable"

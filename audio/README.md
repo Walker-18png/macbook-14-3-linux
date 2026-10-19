@@ -16,6 +16,10 @@ sudo reboot
 
 Run the script as your normal user. It needs `yay`.
 
+The package is `snd-hda-macbookpro-dkms-git` from the AUR. It builds the latest upstream commit, so
+yay shows the PKGBUILD before it builds: read it, and check the source URL points at
+[davidjo/snd_hda_macbookpro](https://github.com/davidjo/snd_hda_macbookpro).
+
 ## Before you install: EFI partition space
 
 The driver's initrd step writes into the EFI system partition. On this machine the ESP is 300 MB and

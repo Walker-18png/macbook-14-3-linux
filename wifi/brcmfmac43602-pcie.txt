@@ -4,16 +4,13 @@
 # part; without an NVRAM, brcmfmac advertises 2.4 GHz only.
 #
 # ccode=00 / regrev=245 defers channel legality to the host regulatory domain.
-# Omarchy already persists that from the timezone via set-wireless-regdom.sh.
+# Set yours with `iw reg set <country>` or the wireless-regdb config.
 # The values below are otherwise this dump's calibration data; do not edit them.
 #
 # Lines starting with # are comments; the brcmfmac NVRAM parser ignores them.
 # macaddr= is a firmware key. The 00:90:4c value is Broadcom's placeholder,
-# not a board identity. The install leaf and migration substitute the 43ba
-# wiphy's permanent address when it is not a Broadcom placeholder, otherwise
-# a machine-id-derived locally-administered address. The key is never dropped
-# (dropping it makes the dongle time out on cur_etheraddr and crash). The
-# donor value is never persisted.
+# not a board identity. install-wifi.sh copies this file unchanged. Keep the
+# key: without it the dongle times out on cur_etheraddr and crashes.
 
 sromrev=11
 subvid=0x14e4

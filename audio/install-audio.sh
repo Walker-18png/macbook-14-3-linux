@@ -21,7 +21,10 @@ if mountpoint -q /efi 2>/dev/null || mountpoint -q /boot/efi 2>/dev/null; then
   fi
 fi
 
-yay -S --needed --noconfirm snd-hda-macbookpro-dkms-git
+# A -git package builds whatever upstream has today. yay shows the PKGBUILD diff: read it
+# before you accept.
+echo "yay will show the PKGBUILD. Read it before you accept: it builds the latest upstream commit."
+yay -S --needed snd-hda-macbookpro-dkms-git
 
 echo
 echo "Reboot, then run:  dmesg | grep -i cs8409"

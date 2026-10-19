@@ -4,7 +4,6 @@
 # panel (i915 "disabling eDP"). Write the Intel value back and say so on the
 # console login screen; the next boot gets the desktop again.
 V=${GPU_PREFS_VAR:-/sys/firmware/efi/efivars/gpu-power-prefs-fa4ce28d-b62f-4c99-9cc3-6815686e30f9}
-WANT="07 00 00 00 01 00 00 00"
 rm -f /etc/issue.d/gpu-prefs.issue
 have=$(od -An -tx1 "$V" 2>/dev/null | tr -s ' ' | sed 's/^ //;s/ $//')
 # Byte 3 holds the runtime-access flag the kernel adds on read; ignore it.
