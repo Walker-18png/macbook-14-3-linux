@@ -11,7 +11,7 @@ own ports.
 | Touch Bar | Function row shows and keys work (AJ-dev-i60 driver, Arch port) | [touchbar/](touchbar/README.md) |
 | Speakers | Internal speakers, via the CS8409 Apple driver (AUR) | [audio/](audio/README.md) |
 | Wi-Fi | 5 GHz networks show up (board NVRAM file) | [wifi/](wifi/README.md) |
-| Sleep and graphics | Lid sleep, key-press wake (s2idle), Intel on the panel, Radeon off, Thunderbolt and USB-C survive sleep | [power/](power/README.md) |
+| Sleep and graphics | Lid sleep, key-press wake (s2idle), Intel on the panel, Thunderbolt and USB-C survive sleep. **Costs you the Radeon** in Linux | [power/](power/README.md) |
 | Kernel updates | A kernel upgrade that would break a DKMS driver aborts before it installs | [kernel-updates/](kernel-updates/README.md) |
 
 Tested on MacBookPro14,3 with Arch Linux. Kernel versions are in the [tested-on log](#tested-on).

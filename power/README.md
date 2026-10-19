@@ -6,6 +6,14 @@ after wake.
 
 Tested on MacBookPro14,3, EndeavourOS (Arch), kernel 7.2.9-arch1-1, Hyprland with hypridle.
 
+> **You lose the Radeon under Linux.** The Intel GPU does all rendering. amdgpu never loads at
+> boot, and `mac-sleep` unbinds it before each sleep, because the Radeon can't come back from
+> sleep. With `--dgpu-off` the Radeon is also powered off. Without it, the Radeon stays powered
+> but has no driver. Either way there is no PRIME offload, no Vulkan on the Radeon, and no gaming
+> on it. Apple wires the USB-C display outputs of the 15-inch models to the Radeon, so external
+> monitors very likely don't work either. We haven't tested that. macOS still uses the Radeon
+> normally. To get it back in Linux, run `uninstall-power.sh`. You then lose working sleep.
+
 ## Scope: read before you install
 
 We worked this out on one machine. Other 14,3s can differ, so check yours against this list.
