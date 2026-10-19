@@ -10,8 +10,9 @@ Tested on MacBookPro14,3, EndeavourOS (Arch), kernel 7.2.9-arch1-1, Hyprland wit
 > boot, and `mac-sleep` unbinds it before each sleep, because the Radeon can't come back from
 > sleep. With `--dgpu-off` the Radeon is also powered off. Without it, the Radeon stays powered
 > but has no driver. Either way there is no PRIME offload, no Vulkan on the Radeon, and no gaming
-> on it. Apple wires the USB-C display outputs of the 15-inch models to the Radeon, so external
-> monitors very likely don't work either. We haven't tested that. macOS still uses the Radeon
+> on it. **External monitors don't work either:** Apple wires the USB-C display outputs of the
+> 15-inch models to the Radeon. A monitor on USB-C got no signal on our MacBookPro14,3
+> (2026-10-19). macOS still uses the Radeon
 > normally. To get it back in Linux, run `uninstall-power.sh`. You then lose working sleep.
 
 ## Scope: read before you install
