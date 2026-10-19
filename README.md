@@ -2,9 +2,11 @@
 
 Everything that took work to get running on a 2017 15-inch MacBook Pro (T1 chip, 14,3) under Linux.
 
-> **Fedora, Ubuntu, Debian and openSUSE support is untested as of 2026-10-19.** The installers
-> handle those distributions, but only the Arch code paths have run on a Mac. Expect bugs there,
-> and see [Distributions](#distributions) for what each part does.
+> **Parts of `main` have not run on a Mac yet (2026-10-19).**
+> - Fedora, Ubuntu, Debian and openSUSE support is untested. Only the Arch code paths have run on
+>   a Mac. Expect bugs there, and see [Distributions](#distributions) for what each part does.
+> - On Arch too, the [changes since v1.0.0](#changes-since-v100) wait for a hardware test. For the
+>   last tested state, use [v1.0.0](#releases).
 
 | Part | What it fixes | Folder |
 |---|---|---|
@@ -38,24 +40,53 @@ Authorship: Claude (Anthropic) wrote almost all of this kit: the installer scrip
 
 ## Order
 
-1. **Wi-Fi.** `cd wifi && sudo ./install-wifi.sh`, then reboot.
+Run these in a terminal on the Mac, booted into Linux. Wi-Fi already works on 2.4 GHz networks,
+so download the kit first:
+
+```sh
+sudo pacman -S git        # Fedora: sudo dnf install git   Ubuntu, Debian: sudo apt install git
+cd ~
+git clone https://github.com/Walker-18png/macbook-14-3-linux
+```
+
+Then install the parts in this order:
+
+1. **Wi-Fi.** `cd ~/macbook-14-3-linux/wifi && sudo ./install-wifi.sh`, then reboot.
 2. **Speakers.** Check EFI partition space first (see [audio/README.md](audio/README.md)), then
-   `cd audio && ./install-audio.sh`, then reboot.
-3. **Touch Bar.** `cd touchbar && sudo ./install-touchbar.sh`, then reboot.
-4. **Sleep and graphics.** `cd power && sudo ./install-power.sh --dgpu-off`, set `AQ_DRM_DEVICES`, then reboot.
-5. **Kernel updates (Arch only).** `cd kernel-updates && sudo ./install-kernel-updates.sh`.
+   `cd ~/macbook-14-3-linux/audio && ./install-audio.sh`, then reboot.
+3. **Touch Bar.** `cd ~/macbook-14-3-linux/touchbar && sudo ./install-touchbar.sh`, then reboot.
+4. **Sleep and graphics.** `cd ~/macbook-14-3-linux/power && sudo ./install-power.sh --dgpu-off`.
+   On Hyprland, set `AQ_DRM_DEVICES` as the installer says. Then reboot.
+5. **Kernel updates (Arch only).** `cd ~/macbook-14-3-linux/kernel-updates && sudo ./install-kernel-updates.sh`.
 
 Each folder has its own README with verify steps, troubleshooting, and removal.
 
+## Changes since v1.0.0
+
+These are on `main` and have not run on the Mac yet:
+
+- **All parts:** installers detect Fedora, Ubuntu, Debian and openSUSE and use dnf, apt or zypper.
+- **Touch Bar:** `install-arch.sh` is now `install-touchbar.sh`. It installs the headers package
+  that matches the running kernel, such as `linux-lts-headers`.
+- **Speakers:** a non-Arch path that runs upstream's DKMS installer.
+- **Sleep and graphics:**
+  - `smc-fans-auto.service` puts the fans back on SMC control at every boot.
+  - `tb-lc-keep` and `acpi-bridge-bus` refuse to load outside kernel 7.2 unless you set `force=1`.
+  - The uninstaller removes `pcie_ports=native` from the kernel line instead of restoring a backup.
+  - The kernel line is set through grubby or `/etc/default/grub` when `/etc/kernel/cmdline` is missing.
+
 ## Releases
 
-Tagged releases mark states confirmed on the hardware. Pin one instead of tracking `main`:
+Tagged releases mark states confirmed on the hardware. To use the last tested state instead of
+`main`:
 
 ```sh
 git clone --branch v1.0.0 https://github.com/Walker-18png/macbook-14-3-linux
 ```
 
-The [releases page](https://github.com/Walker-18png/macbook-14-3-linux/releases) lists the tags.
+v1.0.0 supports Arch only, and its Touch Bar installer is named `install-arch.sh`. Follow the
+README inside that checkout, because its steps differ from this one. The
+[releases page](https://github.com/Walker-18png/macbook-14-3-linux/releases) lists the tags.
 
 ## Tested on
 
