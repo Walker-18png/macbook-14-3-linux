@@ -2,6 +2,10 @@
 
 Everything that took work to get running on a 2017 15-inch MacBook Pro (T1 chip, 14,3) under Linux.
 
+> **Fedora, Ubuntu, Debian and openSUSE support is untested as of 2026-10-19.** The installers
+> handle those distributions, but only the Arch code paths have run on a Mac. Expect bugs there,
+> and see [Distributions](#distributions) for what each part does.
+
 | Part | What it fixes | Folder |
 |---|---|---|
 | Touch Bar | Function row shows and keys work (AJ-dev-i60 driver) | [touchbar/](touchbar/README.md) |
