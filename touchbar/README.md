@@ -1,10 +1,10 @@
 # T1 Touch Bar on Arch Linux
 
 Makes the Touch Bar on a 2016-2017 MacBook Pro (T1, `05ac:8600` iBridge) show the function row
-on Arch Linux. The T1's own firmware draws the strip. This repo installs the kernel driver that
+on Arch Linux. The T1's own firmware draws the strip. This folder installs the kernel driver that
 talks to it.
 
-Tested on: MacBookPro14,3, Arch Linux, kernel 7.2.9-arch1-1.
+Tested on MacBookPro14,3. Kernel versions are in the [tested-on log](../README.md#tested-on).
 
 ## Requirements
 
@@ -15,9 +15,10 @@ Tested on: MacBookPro14,3, Arch Linux, kernel 7.2.9-arch1-1.
 
 ## Install
 
+Run the installer from this repo's `touchbar/` folder:
+
 ```sh
-git clone https://github.com/Walker-18png/t1-touchbar-arch
-cd t1-touchbar-arch
+cd macbook-14-3-linux/touchbar
 sudo ./install-arch.sh
 sudo reboot
 ```
@@ -94,9 +95,11 @@ sudo reboot
 ## Credits and licenses
 
 The driver source in `apple-ib-drv/` is from
-[AJ-dev-i60/t1-touchbar](https://github.com/AJ-dev-i60/t1-touchbar), which builds on the
-kernel-6 work of the T1 reverse-engineering projects it cites. It is GPL-2.0, see
+[AJ-dev-i60/t1-touchbar](https://github.com/AJ-dev-i60/t1-touchbar) at
+[`f089319`](https://github.com/AJ-dev-i60/t1-touchbar/commit/f089319655853eb90af1ec620ebb6908591f0b2c)
+(`v0.3.0`), which builds on the kernel-6 work of the T1 reverse-engineering projects it cites.
+[Upstream sources](../README.md#upstream-sources) shows how to diff this copy against it. It is GPL-2.0, see
 `apple-ib-drv/LICENSE`. The original repo's license is in `LICENSE-upstream`.
 
-The installer scripts in this repo are a pacman port of the upstream `install.sh`, under the same
-MIT license as upstream (`LICENSE-upstream`).
+`install-arch.sh` and `uninstall-arch.sh` port upstream's apt-based `install.sh` and
+`uninstall.sh` to pacman. They keep upstream's MIT license (`LICENSE-upstream`).

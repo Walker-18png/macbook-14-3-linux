@@ -1,0 +1,65 @@
+name: Bug report
+description: Something in the kit does not work on your MacBook
+labels: [bug]
+body:
+  - type: dropdown
+    id: part
+    attributes:
+      label: Part
+      options:
+        - Touch Bar
+        - Speakers
+        - Wi-Fi
+        - Sleep and graphics
+        - Kernel updates
+    validations:
+      required: true
+  - type: input
+    id: model
+    attributes:
+      label: Model identifier
+      description: Output of `cat /sys/class/dmi/id/product_name`
+      placeholder: MacBookPro14,3
+    validations:
+      required: true
+  - type: input
+    id: kernel
+    attributes:
+      label: Kernel version
+      description: Output of `uname -r`
+      placeholder: 7.2.9-arch1-1
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Kit version
+      description: Release tag, or the commit from `git rev-parse --short HEAD`
+    validations:
+      required: true
+  - type: input
+    id: distro
+    attributes:
+      label: Distribution
+      placeholder: Arch Linux, EndeavourOS
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you ran, what you expected, and what you got instead.
+    validations:
+      required: true
+  - type: textarea
+    id: dmesg
+    attributes:
+      label: dmesg lines
+      description: |
+        The kernel messages for the part that fails, for example:
+        Touch Bar: `sudo dmesg | grep -iE 'ibridge|touchbar|appletb'`
+        Speakers: `sudo dmesg | grep -iE 'cs8409|snd_hda'`
+        Wi-Fi: `sudo dmesg | grep -i brcmfmac`
+        Sleep: `sudo dmesg | grep -iE 'PM:|ACPI|amdgpu|thunderbolt'`
+        Kernel updates: the pacman output from the failed upgrade.
+      render: text
+    validations:
+      required: true
