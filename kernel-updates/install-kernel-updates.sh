@@ -5,6 +5,7 @@
 set -euo pipefail
 [ "$(id -u)" -eq 0 ] || { echo "Run as root: sudo $0" >&2; exit 1; }
 REPO="$(cd "$(dirname "$0")" && pwd)"
+command -v pacman >/dev/null || { echo "These are pacman hooks, for Arch only. See README.md." >&2; exit 1; }
 for c in dkms bsdtar unshare pacman-conf; do
   command -v $c >/dev/null || { echo "$c missing (pacman -S dkms libarchive util-linux pacman)" >&2; exit 1; }
 done

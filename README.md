@@ -1,20 +1,34 @@
 # MacBookPro14,3 Linux starter kit
 
-Everything that took work to get running on a 2017 15-inch MacBook Pro (T1 chip, 14,3) under Arch Linux.
-
-**Arch Linux only.** The installers use pacman, pacman hooks and the AUR. They work on Arch and on
-Arch-based distributions such as EndeavourOS. Ubuntu, Fedora and other distributions need their
-own ports.
+Everything that took work to get running on a 2017 15-inch MacBook Pro (T1 chip, 14,3) under Linux.
 
 | Part | What it fixes | Folder |
 |---|---|---|
-| Touch Bar | Function row shows and keys work (AJ-dev-i60 driver, Arch port) | [touchbar/](touchbar/README.md) |
-| Speakers | Internal speakers, via the CS8409 Apple driver (AUR) | [audio/](audio/README.md) |
+| Touch Bar | Function row shows and keys work (AJ-dev-i60 driver) | [touchbar/](touchbar/README.md) |
+| Speakers | Internal speakers, via the CS8409 Apple driver | [audio/](audio/README.md) |
 | Wi-Fi | 5 GHz networks show up (board NVRAM file) | [wifi/](wifi/README.md) |
 | Sleep and graphics | Lid sleep, key-press wake (s2idle), Intel on the panel, Thunderbolt and USB-C survive sleep. **Costs you the Radeon and external monitors** in Linux | [power/](power/README.md) |
 | Kernel updates | A kernel upgrade that would break a DKMS driver aborts before it installs | [kernel-updates/](kernel-updates/README.md) |
 
 Tested on MacBookPro14,3 with Arch Linux. Kernel versions are in the [tested-on log](#tested-on).
+
+## Distributions
+
+We built and tested the kit on Arch. The installers read `/etc/os-release` and also handle
+Fedora, Ubuntu, Debian, openSUSE and distributions based on them. Nobody has run those paths on a
+Mac yet. If you do, report the result with the bug template, failures included.
+
+| Part | Arch and Arch-based | Fedora, Ubuntu, Debian, openSUSE |
+|---|---|---|
+| Wi-Fi | Tested | Same file copy, untested |
+| Speakers | AUR package through yay, tested | Upstream's DKMS installer, untested |
+| Touch Bar | Tested | DKMS and headers from dnf, apt or zypper, untested |
+| Sleep and graphics | Tested on EndeavourOS with systemd-boot and dracut | Kernel line through grubby or `/etc/default/grub`, untested. Ubuntu and Debian need a manual initramfs check |
+| Kernel updates | pacman hooks | Not available. DKMS still rebuilds on kernel updates, without the pre-install check |
+
+The power kit's two kprobe modules arm only on the 7.2 kernel series. On another series they stay
+off, and Thunderbolt and USB-C stop working after the first sleep. See
+[Runtime kernel patches](power/README.md#runtime-kernel-patches).
 
 Authorship: Claude (Anthropic) wrote almost all of this kit: the installer scripts, the READMEs, and the troubleshooting notes. Walker-18png directed the work, tested it on the MacBook, and published it.
 
@@ -23,9 +37,9 @@ Authorship: Claude (Anthropic) wrote almost all of this kit: the installer scrip
 1. **Wi-Fi.** `cd wifi && sudo ./install-wifi.sh`, then reboot.
 2. **Speakers.** Check EFI partition space first (see [audio/README.md](audio/README.md)), then
    `cd audio && ./install-audio.sh`, then reboot.
-3. **Touch Bar.** `cd touchbar && sudo ./install-arch.sh`, then reboot.
+3. **Touch Bar.** `cd touchbar && sudo ./install-touchbar.sh`, then reboot.
 4. **Sleep and graphics.** `cd power && sudo ./install-power.sh --dgpu-off`, set `AQ_DRM_DEVICES`, then reboot.
-5. **Kernel updates.** `cd kernel-updates && sudo ./install-kernel-updates.sh`.
+5. **Kernel updates (Arch only).** `cd kernel-updates && sudo ./install-kernel-updates.sh`.
 
 Each folder has its own README with verify steps, troubleshooting, and removal.
 

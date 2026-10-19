@@ -5,6 +5,11 @@ This kit runs five out-of-tree drivers through DKMS: the Touch Bar (`apple-ib-dr
 any you add. A kernel update that one of them can't build against leaves you with no Touch Bar,
 no sound or dead Thunderbolt after the reboot. These pacman hooks catch that before it happens.
 
+They work on Arch and Arch-based distributions only. On Fedora, Ubuntu, Debian and openSUSE, DKMS
+still rebuilds the modules after a kernel update, but nothing stops an update whose build fails.
+Run `dkms status` after each kernel update, and boot the previous kernel from the boot menu if a
+module is missing.
+
 ## Install
 
 ```sh

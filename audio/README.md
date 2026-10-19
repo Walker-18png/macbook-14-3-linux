@@ -3,7 +3,9 @@
 The T1 MacBook Pro uses a Cirrus CS8409 codec. The stock kernel module has no Apple quirk for this
 machine, so the internal speakers stay silent. This installs the community driver
 `snd-hda-macbookpro` (GPL-2.0, [davidjo/snd_hda_macbookpro](https://github.com/davidjo/snd_hda_macbookpro))
-as a DKMS package from the AUR.
+as a DKMS module. On Arch it comes from the AUR. On Fedora, Ubuntu, Debian and openSUSE the script
+clones upstream to `/usr/local/src/snd_hda_macbookpro` and runs upstream's own DKMS installer. Only
+the Arch path is tested.
 
 Tested on: MacBookPro14,3, Arch Linux, kernel 7.2.9-arch1-1. Speakers confirmed working.
 
@@ -14,11 +16,16 @@ Tested on: MacBookPro14,3, Arch Linux, kernel 7.2.9-arch1-1. Speakers confirmed 
 sudo reboot
 ```
 
-Run the script as your normal user. It needs `yay`.
+Run the script as your normal user. It asks for sudo itself. On Arch it needs `yay`.
 
 The package is `snd-hda-macbookpro-dkms-git` from the AUR. It builds the latest upstream commit, so
 yay shows the PKGBUILD before it builds: read it, and check the source URL points at
 [davidjo/snd_hda_macbookpro](https://github.com/davidjo/snd_hda_macbookpro).
+
+On other distributions the script prints the upstream commit and waits for a yes. Read
+`install.cirrus.driver.sh` and `dkms.sh` in the clone before you answer: both run as root. Upstream's
+DKMS build downloads the matching kernel source from kernel.org for every new kernel, so kernel
+updates need a network connection.
 
 ## Before you install: EFI partition space
 
@@ -53,6 +60,12 @@ weak bass ([issue #213](https://github.com/davidjo/snd_hda_macbookpro/issues/213
 ## Remove
 
 ```sh
+# Arch
 yay -R snd-hda-macbookpro-dkms-git
+
+# Other distributions
+cd /usr/local/src/snd_hda_macbookpro && sudo ./install.cirrus.driver.sh -r
+sudo rm -rf /usr/local/src/snd_hda_macbookpro
+
 sudo reboot
 ```

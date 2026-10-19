@@ -18,10 +18,23 @@ rm -f /usr/local/bin/{gmux-igd,gpu-prefs-guard,mac-wake-display,mac-hibernate,dg
   /etc/dracut.conf.d/zz-no-gpu-in-initrd.conf /etc/issue.d/gpu-prefs.issue
 # Take out only what the installer added, so later kernel-line edits survive.
 [ -f /etc/kernel/cmdline ] && sed -i 's/ pcie_ports=native//' /etc/kernel/cmdline
+command -v grubby >/dev/null && grubby --update-kernel=ALL --remove-args=pcie_ports=native
+GRUB_REBUILD=0
+if grep -q 'pcie_ports=native ' /etc/default/grub 2>/dev/null; then
+  sed -i 's/pcie_ports=native //' /etc/default/grub
+  GRUB_REBUILD=1
+fi
 systemctl daemon-reload
 udevadm control --reload
 if command -v reinstall-kernels >/dev/null; then reinstall-kernels
 elif command -v mkinitcpio >/dev/null; then mkinitcpio -P
 elif command -v dracut >/dev/null; then dracut --regenerate-all --force
+elif command -v update-initramfs >/dev/null; then update-initramfs -u -k all
+fi
+if [ $GRUB_REBUILD = 1 ]; then
+  if command -v update-grub >/dev/null; then update-grub
+  elif command -v grub2-mkconfig >/dev/null; then grub2-mkconfig -o /boot/grub2/grub.cfg
+  else grub-mkconfig -o /boot/grub/grub.cfg
+  fi
 fi
 echo "Removed. Reboot to finish."

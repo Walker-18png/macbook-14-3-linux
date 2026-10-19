@@ -21,6 +21,7 @@ done
 [ $DRY = 1 ] || [ "$(id -u)" -eq 0 ] || { echo "Run as root: sudo $0" >&2; exit 1; }
 
 REPO="$(cd "$(dirname "$0")" && pwd)"
+. "$REPO/../lib/distro.sh"
 run() { echo "+ $*"; [ $DRY = 1 ] || "$@"; }
 put() { run install -Dm"$1" "$REPO/$2" "$3"; }
 
@@ -29,8 +30,8 @@ if [ "$model" != MacBookPro14,3 ]; then
   echo "This is '$model', not a MacBookPro14,3. The gmux, PCI and ACPI paths here are for the 14,3." >&2
   exit 1
 fi
-igd=$(cat /sys/bus/pci/devices/0000:00:02.0/{vendor,device} 2>/dev/null | tr '\n' ' ')
-dgpu=$(cat /sys/bus/pci/devices/0000:01:00.0/{vendor,device} 2>/dev/null | tr '\n' ' ')
+igd=$(cat /sys/bus/pci/devices/0000:00:02.0/{vendor,device} 2>/dev/null | tr '\n' ' ' || true)
+dgpu=$(cat /sys/bus/pci/devices/0000:01:00.0/{vendor,device} 2>/dev/null | tr '\n' ' ' || true)
 if [ "$igd" != "0x8086 0x591b " ] || [ "$dgpu" != "0x1002 0x67ef " ]; then
   echo "GPUs differ from the tested machine (00:02.0 = $igd, 01:00.0 = $dgpu;" >&2
   echo "tested: 0x8086 0x591b and 0x1002 0x67ef). See README.md, Scope." >&2
@@ -54,8 +55,11 @@ put 644 systemd/gpu-prefs-guard.service /etc/systemd/system/gpu-prefs-guard.serv
 # gmux-igd has to switch the panel before i915 loads, so keep both GPU drivers out of the initrd.
 if command -v dracut >/dev/null; then
   put 644 conf/zz-no-gpu-in-initrd.conf /etc/dracut.conf.d/zz-no-gpu-in-initrd.conf
-else
-  echo "   Not dracut: remove i915 and amdgpu from MODULES in /etc/mkinitcpio.conf and its kms hook, then rebuild."
+elif command -v mkinitcpio >/dev/null; then
+  echo "   mkinitcpio: remove i915 and amdgpu from MODULES in /etc/mkinitcpio.conf and its kms hook, then rebuild."
+elif command -v update-initramfs >/dev/null; then
+  echo "   initramfs-tools: remove i915 and amdgpu from /etc/initramfs-tools/modules if listed there."
+  echo "   Its framebuffer hook can still pull them in. Check with: lsinitramfs /boot/initrd.img-\$(uname -r) | grep -E 'i915|amdgpu'"
 fi
 
 echo "== 3. Sleep: s2idle, lid = suspend, wake hook"
@@ -71,7 +75,10 @@ put 644 udev/62-t1-no-wakeup.rules /etc/udev/rules.d/62-t1-no-wakeup.rules
 put 644 udev/63-tb-xhci-awake.rules /etc/udev/rules.d/63-tb-xhci-awake.rules
 
 echo "== 4. Thunderbolt/USB-C survive sleep: tb-lc-keep (DKMS)"
-command -v dkms >/dev/null || { echo "dkms missing: pacman -S dkms linux-headers" >&2; exit 1; }
+# shellcheck disable=SC2046
+command -v dkms >/dev/null && have_headers || run pkg_install $(dkms_deps) || true
+[ $DRY = 1 ] || { command -v dkms >/dev/null && have_headers; } || {
+  echo "Install DKMS and the headers for $(uname -r), then re-run: $(dkms_deps)" >&2; exit 1; }
 run rm -rf /usr/src/tb-lc-keep-1.0
 run cp -r "$REPO/tb-lc-keep" /usr/src/tb-lc-keep-1.0
 dkms status tb-lc-keep/1.0 2>/dev/null | grep -q . && run dkms remove tb-lc-keep/1.0 --all
@@ -87,13 +94,21 @@ run dkms install acpi-bridge-bus/1.0
 run sh -c 'echo acpi_bridge_bus > /etc/modules-load.d/acpi-bridge-bus.conf'
 
 echo "== 5. Kernel line: pcie_ports=native (USB-C hotplug)"
-if [ -f /etc/kernel/cmdline ]; then
-  if grep -qw pcie_ports=native /etc/kernel/cmdline; then
-    echo "   already set"
-  else
-    run cp /etc/kernel/cmdline /etc/kernel/cmdline.bak-power
-    run sed -i 's/$/ pcie_ports=native/' /etc/kernel/cmdline
-  fi
+GRUB_REBUILD=0
+if grep -qw pcie_ports=native /proc/cmdline /etc/kernel/cmdline /etc/default/grub 2>/dev/null; then
+  echo "   already set"
+elif [ -f /etc/kernel/cmdline ]; then
+  # systemd-boot and UKIs built by kernel-install
+  run cp /etc/kernel/cmdline /etc/kernel/cmdline.bak-power
+  run sed -i 's/$/ pcie_ports=native/' /etc/kernel/cmdline
+elif command -v grubby >/dev/null; then
+  # Fedora: GRUB with BLS entries
+  run grubby --update-kernel=ALL --args=pcie_ports=native
+elif [ -f /etc/default/grub ]; then
+  # Debian, Ubuntu, openSUSE, Arch with GRUB
+  run cp /etc/default/grub /etc/default/grub.bak-power
+  run sed -i 's/^GRUB_CMDLINE_LINUX_DEFAULT="/&pcie_ports=native /' /etc/default/grub
+  GRUB_REBUILD=1
 else
   echo "   Add pcie_ports=native to your boot loader's kernel line by hand."
   echo "   Without it, udev/63-tb-xhci-awake.rules keeps USB-C hotplug working at a small power cost."
@@ -118,6 +133,14 @@ elif command -v mkinitcpio >/dev/null; then
   run mkinitcpio -P
 elif command -v dracut >/dev/null; then
   run dracut --regenerate-all --force
+elif command -v update-initramfs >/dev/null; then
+  run update-initramfs -u -k all
+fi
+if [ $GRUB_REBUILD = 1 ]; then
+  if command -v update-grub >/dev/null; then run update-grub
+  elif command -v grub2-mkconfig >/dev/null; then run grub2-mkconfig -o /boot/grub2/grub.cfg
+  else run grub-mkconfig -o /boot/grub/grub.cfg
+  fi
 fi
 
 cat <<'MSG'

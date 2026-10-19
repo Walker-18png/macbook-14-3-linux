@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
 #
-# Arch Linux installer for the T1 (2016-2017 MacBook Pro) Touch Bar.
-# Port of AJ-dev-i60/t1-touchbar install.sh. The original is apt-only; this does
-# the same steps with pacman and kernel headers from the running kernel.
+# Touch Bar driver for the T1 (2016-2017 MacBook Pro).
+# Port of AJ-dev-i60/t1-touchbar install.sh, which is apt-only. This one installs DKMS and the
+# running kernel's headers with pacman, dnf, apt or zypper (lib/distro.sh). Tested on Arch.
 #
-#   sudo ./install-arch.sh [--dry-run]
+#   sudo ./install-touchbar.sh [--dry-run]
 #
 set -euo pipefail
 
 DKMS_NAME=apple-ib-drv
 DKMS_VER=0.1
 REPO="$(cd "$(dirname "$0")" && pwd)"
+. "$REPO/../lib/distro.sh"
 SRC="/usr/src/${DKMS_NAME}-${DKMS_VER}"
 DRY=0
 
@@ -24,7 +25,6 @@ say() { printf '\033[1m==>\033[0m %s\n' "$*"; }
 run() { printf '   + %s\n' "$*"; [ "$DRY" = 1 ] || "$@"; }
 
 [ "$(id -u)" -eq 0 ] || { echo "Run as root: sudo $0" >&2; exit 1; }
-command -v pacman >/dev/null || { echo "This installer is for Arch Linux (pacman)." >&2; exit 1; }
 
 if ! lsusb 2>/dev/null | grep -qi '05ac:8600'; then
   echo "No iBridge (05ac:8600) on USB. This is for 2016-2017 MacBook Pro (T1) models." >&2
@@ -43,9 +43,10 @@ for m in apple_ib_tb apple_ibridge apple_touchbar; do
   lsmod | grep -q "^${m} " && run modprobe -r "$m" || true
 done
 
-say "Installing kernel headers and DKMS."
-run pacman -S --needed --noconfirm dkms "linux-headers" || true
-if [ ! -d "/usr/lib/modules/$(uname -r)/build" ]; then
+say "Installing kernel headers and DKMS (${DISTRO})."
+# shellcheck disable=SC2046
+run pkg_install $(dkms_deps) || true
+if [ "$DRY" = 0 ] && ! have_headers; then
   echo "Kernel headers for $(uname -r) are missing. Install the headers package that matches your kernel, then re-run." >&2
   exit 1
 fi

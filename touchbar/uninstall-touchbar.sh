@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Removes the T1 Touch Bar driver installed by install-arch.sh.
-#   sudo ./uninstall-arch.sh
+# Removes the T1 Touch Bar driver installed by install-touchbar.sh.
+#   sudo ./uninstall-touchbar.sh
 set -euo pipefail
 
 [ "$(id -u)" -eq 0 ] || { echo "Run as root: sudo $0" >&2; exit 1; }

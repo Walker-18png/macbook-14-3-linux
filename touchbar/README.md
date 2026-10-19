@@ -1,7 +1,7 @@
-# T1 Touch Bar on Arch Linux
+# T1 Touch Bar
 
 Makes the Touch Bar on a 2016-2017 MacBook Pro (T1, `05ac:8600` iBridge) show the function row
-on Arch Linux. The T1's own firmware draws the strip. This folder installs the kernel driver that
+on Linux. The T1's own firmware draws the strip. This folder installs the kernel driver that
 talks to it.
 
 Tested on MacBookPro14,3. Kernel versions are in the [tested-on log](../README.md#tested-on).
@@ -10,7 +10,8 @@ Tested on MacBookPro14,3. Kernel versions are in the [tested-on log](../README.m
 
 - A T1 MacBook Pro with its firmware intact. Check that `/boot/EFI/APPLE/EMBEDDEDOS/combined.memboot`
   exists. If you use a separate EFI mount, check the path on that mount.
-- Arch Linux with kernel headers for the running kernel (`linux-headers`).
+- DKMS and the headers for the running kernel. The installer installs both with pacman, dnf, apt
+  or zypper. Only the Arch path is tested.
 - Secure Boot off. With Secure Boot on, enrol the DKMS key first: `sudo mokutil --import /var/lib/dkms/mok.pub`.
 
 ## Install
@@ -19,7 +20,7 @@ Run the installer from this repo's `touchbar/` folder:
 
 ```sh
 cd macbook-14-3-linux/touchbar
-sudo ./install-arch.sh
+sudo ./install-touchbar.sh
 sudo reboot
 ```
 
@@ -31,7 +32,7 @@ After the reboot, the function row should show. Hold fn for F1 to F12, or releas
 
 1. Removes the older `appleibridge` DKMS module and `/etc/modprobe.d/apple-ib-tb.conf`, if present.
    Both claim the iBridge and conflict with this driver.
-2. Builds and installs the driver (`apple-ib-drv` 0.1) with DKMS.
+2. Installs DKMS and the kernel headers, then builds and installs the driver (`apple-ib-drv` 0.1) with DKMS.
 3. Writes `/etc/modprobe.d/apple-touchbar.conf`, which sets `skip_acpi_power=1`. This is required.
    Without it, loading the module runs `ASOC.SOCW(1)` and freezes the T1.
    Also blacklists `appletbdrm`, the T2 Touch Bar driver: on a T1 it fails its probe (-11) on the
@@ -88,7 +89,7 @@ values without rebooting, write them to `idle_timeout` and `dim_timeout` under
 ## Remove
 
 ```sh
-sudo ./uninstall-arch.sh
+sudo ./uninstall-touchbar.sh
 sudo reboot
 ```
 
@@ -101,5 +102,5 @@ The driver source in `apple-ib-drv/` is from
 [Upstream sources](../README.md#upstream-sources) shows how to diff this copy against it. It is GPL-2.0, see
 `apple-ib-drv/LICENSE`. The original repo's license is in `LICENSE-upstream`.
 
-`install-arch.sh` and `uninstall-arch.sh` port upstream's apt-based `install.sh` and
-`uninstall.sh` to pacman. They keep upstream's MIT license (`LICENSE-upstream`).
+`install-touchbar.sh` and `uninstall-touchbar.sh` port upstream's apt-based `install.sh` and
+`uninstall.sh` to pacman, dnf, apt and zypper. They keep upstream's MIT license (`LICENSE-upstream`).

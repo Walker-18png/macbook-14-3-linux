@@ -2,7 +2,7 @@
 
 This kernel driver makes the T1's own firmware draw the Touch Bar: the familiar Esc, brightness,
 keyboard backlight, media and volume strip, with **hold Fn for F1 to F12**, as on macOS.
-`../install-arch.sh` installs it.
+`../install-touchbar.sh` installs it.
 
 The firmware does the drawing, so the driver needs no daemon. The T1 draws the strip in USB
 **config 1** and nothing holds the device open. The **FaceTime webcam keeps working**: the udev
@@ -52,7 +52,7 @@ The six fixes:
 
 ## How it's installed
 
-`../install-arch.sh` installs it with **DKMS**, so it rebuilds on kernel upgrades:
+`../install-touchbar.sh` installs it with **DKMS**, so it rebuilds on kernel upgrades:
 
 ```
 dkms add/build/install (this source as apple-ib-drv/0.1)

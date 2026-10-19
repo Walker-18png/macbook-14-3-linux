@@ -40,8 +40,18 @@ below.
   skips the panel step when Hyprland isn't running. On GNOME, KDE or Sway, the compositor turns the
   panel back on itself; point it at `/dev/dri/intel` in its own way. Everything else (s2idle, EC lid
   wake, gmux, Radeon off, Thunderbolt, USB-C, fans, keyboard light) works without a desktop.
-- **Boot loader.** GRUB and mkinitcpio users add `pcie_ports=native` by hand and remove i915 and
-  amdgpu from the initrd themselves. The installer says so.
+- **Boot loader.** The installer adds `pcie_ports=native` through the first of these it finds:
+  `/etc/kernel/cmdline` (systemd-boot with kernel-install, tested), `grubby` (Fedora) or
+  `/etc/default/grub` (GRUB elsewhere, then `update-grub` or `grub2-mkconfig`). With none of them it
+  tells you to add it by hand.
+- **Initrd.** i915 and amdgpu must stay out of the initrd. The installer handles dracut (Fedora,
+  openSUSE). With mkinitcpio, remove them from `MODULES` and drop the `kms` hook yourself. Ubuntu
+  and Debian's initramfs-tools can pull them in through its framebuffer hook: check with
+  `lsinitramfs /boot/initrd.img-$(uname -r) | grep -E 'i915|amdgpu'`. The installer prints these
+  steps.
+- **Distribution.** Only Arch is tested. DKMS and the kernel headers come from pacman, dnf, apt or
+  zypper. The kprobe modules arm only on the 7.2 kernel series, see
+  [Runtime kernel patches](#runtime-kernel-patches).
 
 ## Install
 
