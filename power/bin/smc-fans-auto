@@ -1,0 +1,17 @@
+#!/bin/sh
+# Hand both fans back to the SMC at boot. mac-sleep stops them for s2idle and
+# only its post step restarts them, so a crash or hang while asleep would leave
+# them stopped under manual control.
+smc=/sys/devices/platform/applesmc.768
+# applesmc loads from udev; give it a few seconds.
+for i in 1 2 3 4 5 6 7 8 9 10; do
+  [ -e $smc/fan1_manual ] && break
+  sleep 1
+done
+for f in $smc/fan*_manual; do
+  [ -e "$f" ] || continue
+  if [ "$(cat "$f")" != 0 ]; then
+    echo 0 > "$f" && logger -t smc-fans-auto "${f##*/} was manual, back on SMC control"
+  fi
+done
+exit 0

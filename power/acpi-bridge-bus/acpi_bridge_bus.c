@@ -19,6 +19,8 @@
 #include <linux/kprobes.h>
 #include <linux/sched.h>
 #include <linux/acpi.h>
+#include <linux/utsname.h>
+#include <linux/version.h>
 
 #define PCI_CFG_PRIMARY_BUS_NUMBER_REG	0x18
 
@@ -31,6 +33,31 @@ MODULE_PARM_DESC(fixed, "primary-bus reads that disagreed with the parent-derive
 static unsigned int kept;
 module_param(kept, uint, 0444);
 MODULE_PARM_DESC(kept, "primary-bus reads replaced with the parent-derived bus");
+
+/*
+ * Tested kernel series. This module hooks internal functions and reads their
+ * arguments from registers, so a new series can break it without a build
+ * error. Check the hooked functions in the new source, then raise TESTED_MAX.
+ */
+#define TESTED_MIN	KERNEL_VERSION(7, 2, 0)
+#define TESTED_MAX	KERNEL_VERSION(7, 3, 0)	/* exclusive */
+
+static bool force;
+module_param(force, bool, 0444);
+MODULE_PARM_DESC(force, "arm on a kernel series this module was not tested on");
+
+static bool tested_kernel(const char *mod)
+{
+	if (LINUX_VERSION_CODE >= TESTED_MIN && LINUX_VERSION_CODE < TESTED_MAX)
+		return true;
+	if (force) {
+		pr_warn("%s: kernel %s is untested, armed because force=1\n", mod, init_utsname()->release);
+		return true;
+	}
+	pr_err("%s: kernel %s is untested, not armed. See power/README.md, Runtime kernel patches\n",
+	       mod, init_utsname()->release);
+	return false;
+}
 
 /* acpi_status acpi_hw_derive_pci_id(struct acpi_pci_id *, acpi_handle, acpi_handle) */
 static int derive_entry(struct kretprobe_instance *ri, struct pt_regs *regs)
@@ -98,8 +125,11 @@ static struct kretprobe read_krp = {
 
 static int __init acpi_bridge_bus_init(void)
 {
-	int ret = register_kretprobe(&read_krp);
+	int ret;
 
+	if (!tested_kernel("acpi_bridge_bus"))
+		return -EPERM;
+	ret = register_kretprobe(&read_krp);
 	if (ret) {
 		pr_err("acpi_bridge_bus: kretprobe acpi_os_read_pci_configuration failed: %d\n", ret);
 		return ret;

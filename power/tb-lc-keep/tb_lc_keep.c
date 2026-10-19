@@ -16,6 +16,8 @@
 #include <linux/device.h>
 #include <linux/string.h>
 #include <linux/objtool.h>
+#include <linux/utsname.h>
+#include <linux/version.h>
 #include <asm/linkage.h>
 
 /* Same stub as just_return_func in arch/x86/lib/error-inject.c (not exported). */
@@ -34,6 +36,31 @@ asm(
 static unsigned int skipped;
 module_param(skipped, uint, 0444);
 MODULE_PARM_DESC(skipped, "host-router LC sleep calls skipped so far");
+
+/*
+ * Tested kernel series. This module hooks internal functions and reads their
+ * arguments from registers, so a new series can break it without a build
+ * error. Check the hooked functions in the new source, then raise TESTED_MAX.
+ */
+#define TESTED_MIN	KERNEL_VERSION(7, 2, 0)
+#define TESTED_MAX	KERNEL_VERSION(7, 3, 0)	/* exclusive */
+
+static bool force;
+module_param(force, bool, 0444);
+MODULE_PARM_DESC(force, "arm on a kernel series this module was not tested on");
+
+static bool tested_kernel(const char *mod)
+{
+	if (LINUX_VERSION_CODE >= TESTED_MIN && LINUX_VERSION_CODE < TESTED_MAX)
+		return true;
+	if (force) {
+		pr_warn("%s: kernel %s is untested, armed because force=1\n", mod, init_utsname()->release);
+		return true;
+	}
+	pr_err("%s: kernel %s is untested, not armed. See power/README.md, Runtime kernel patches\n",
+	       mod, init_utsname()->release);
+	return false;
+}
 
 /* int tb_lc_set_sleep(struct tb_switch *sw); struct tb_switch starts with struct device. */
 static int pre(struct kprobe *p, struct pt_regs *regs)
@@ -64,8 +91,11 @@ static struct kprobe kp = {
 
 static int __init tb_lc_keep_init(void)
 {
-	int ret = register_kprobe(&kp);
+	int ret;
 
+	if (!tested_kernel("tb_lc_keep"))
+		return -EPERM;
+	ret = register_kprobe(&kp);
 	if (ret)
 		pr_err("tb_lc_keep: register_kprobe(tb_lc_set_sleep) failed: %d\n", ret);
 	else

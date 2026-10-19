@@ -83,10 +83,23 @@ internal kernel functions while the kernel runs and change what those functions 
 - `acpi-bridge-bus` hooks `acpi_hw_derive_pci_id` and `acpi_os_read_pci_configuration`, reads their
   arguments from registers, and rewrites one PCI config read.
 
-A missing or renamed function makes the module fail to load, which shows in
-`journalctl -b -u systemd-modules-load`. A changed argument order or struct layout does not: the
-module builds, loads and does the wrong thing. The DKMS precheck only catches build failures.
-Check these two modules against the source of each new kernel series before you trust them.
+A missing or renamed function makes the module fail to load. A changed argument order or struct
+layout would not: the module would build, load and do the wrong thing. The DKMS precheck only
+catches build failures.
+
+Both modules therefore arm only on kernel series listed as tested (`TESTED_MIN` and `TESTED_MAX` in
+each `.c` file, 7.2 now). On any other series they refuse to load, and
+`journalctl -b -u systemd-modules-load` shows `untested, not armed`. Thunderbolt and USB-C then
+behave as on a stock kernel: gone after the first sleep, and slower to wake. To arm them anyway:
+
+```sh
+echo "options tb_lc_keep force=1" | sudo tee /etc/modprobe.d/tb-lc-keep.conf
+echo "options acpi_bridge_bus force=1" | sudo tee /etc/modprobe.d/acpi-bridge-bus.conf
+```
+
+To add a series, compare the hooked functions' signatures and `struct tb_switch` in the new
+kernel source, raise `TESTED_MAX`, reinstall with `install-power.sh`, and add a line to the
+[tested-on log](../README.md#tested-on).
 
 ## What it fixes
 
@@ -103,7 +116,7 @@ Check these two modules against the source of each new kernel series before you 
 | Wi-Fi gone after wake, `brcmf` dcmd timeouts until reboot | The BCM43602 firmware hangs across s2idle | Hook unloads `brcmfmac` before sleep and reloads it after wake |
 | Wi-Fi and Thunderbolt dead after wake | Firmware won't bring them back from D3cold | Hook pins them powered during sleep, restores runtime PM after |
 | Wake stalls for seconds per Thunderbolt controller | During resume a bridge's Primary Bus register can still read 0, so ACPICA maps Apple's UPSB config regions onto host bridge 00:00.0 and the firmware polls the wrong device | `acpi-bridge-bus` (DKMS) keeps the parent-derived bus. Carry of ACPICA PR #1235 (omarchy-pkgs #544, patch 0771) |
-| Fans run at 2000 rpm and the keyboard stays lit while asleep | The SMC keeps them going in s2idle | Hook stops fans below 85 °C and turns the backlight off |
+| Fans run at 2000 rpm and the keyboard stays lit while asleep | The SMC keeps them going in s2idle | Hook stops fans below 85 °C and turns the backlight off. `smc-fans-auto` puts the fans back on SMC control at every boot, in case a crash during sleep skipped the hook's wake step |
 | Spurious wakes | The T1 iBridge is a wake source | `udev/62-t1-no-wakeup.rules` |
 | Touch Bar stays dark after wake | s2idle calls `.resume`, the driver only had `.reset_resume`, and its resume test required the display interface | Patched in `touchbar/apple-ib-drv/apple-touchbar.c` |
 | Hibernate aborts back to the lock screen (`amdgpu_pmops_freeze returns -22`) | amdgpu's freeze callback resets the Radeon even when vga_switcheroo has switched it off, and that reset fails at random. Its `suspend_noirq` callback already skips a switched-off GPU | `mac-hibernate` runs one 3 s s2idle cycle first: the Radeon then sits in D3cold, where the reset passed in every test. Kernel fix: `amdgpu-freeze-switcheroo-off.patch` (not upstream, not built) |
@@ -122,6 +135,7 @@ In s2idle the machine draws about 11 W. That is the platform's floor: the packag
 | `/usr/local/bin/mac-wake-display` | `bin/mac-wake-display` |
 | `/usr/local/bin/gmux-igd` + `gmux-igd.service` | `bin/`, `systemd/` |
 | `/usr/local/bin/gpu-prefs-guard` + `gpu-prefs-guard.service` | `bin/`, `systemd/` |
+| `/usr/local/bin/smc-fans-auto` + `smc-fans-auto.service` | `bin/`, `systemd/` |
 | `/usr/local/bin/dgpu-off{,-enable,-disable}` + `dgpu-off.service` | `bin/`, `systemd/` (with `--dgpu-off`) |
 | `/etc/systemd/sleep.conf.d/s2idle.conf`, `/etc/systemd/logind.conf.d/lid.conf` | `conf/` |
 | `/etc/systemd/sleep.conf.d/hibernate.conf`, `/usr/local/bin/mac-hibernate` | `conf/`, `bin/` |

@@ -1,0 +1,10 @@
+[Unit]
+Description=Put the fans back on SMC control at boot
+After=systemd-udev-trigger.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/smc-fans-auto
+
+[Install]
+WantedBy=multi-user.target

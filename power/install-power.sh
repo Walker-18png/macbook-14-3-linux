@@ -65,6 +65,8 @@ put 644 conf/hibernate.conf /etc/systemd/sleep.conf.d/hibernate.conf
 put 755 bin/mac-hibernate /usr/local/bin/mac-hibernate
 put 755 bin/mac-sleep /usr/lib/systemd/system-sleep/mac-sleep
 put 755 bin/mac-wake-display /usr/local/bin/mac-wake-display
+put 755 bin/smc-fans-auto /usr/local/bin/smc-fans-auto
+put 644 systemd/smc-fans-auto.service /etc/systemd/system/smc-fans-auto.service
 put 644 udev/62-t1-no-wakeup.rules /etc/udev/rules.d/62-t1-no-wakeup.rules
 put 644 udev/63-tb-xhci-awake.rules /etc/udev/rules.d/63-tb-xhci-awake.rules
 
@@ -108,7 +110,7 @@ fi
 echo "== Enable and rebuild"
 run systemctl daemon-reload
 run udevadm control --reload
-run systemctl enable gmux-igd.service gpu-prefs-guard.service
+run systemctl enable gmux-igd.service gpu-prefs-guard.service smc-fans-auto.service
 [ $DGPU = 1 ] && run systemctl enable dgpu-off.service
 if command -v reinstall-kernels >/dev/null; then
   run reinstall-kernels
