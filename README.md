@@ -13,6 +13,7 @@ Everything that took work to get running on a 2017 15-inch MacBook Pro (T1 chip,
 | Touch Bar | Function row shows and keys work (AJ-dev-i60 driver) | [touchbar/](touchbar/README.md) |
 | Speakers | Internal speakers, via the CS8409 Apple driver | [audio/](audio/README.md) |
 | Wi-Fi | 5 GHz networks show up (board NVRAM file) | [wifi/](wifi/README.md) |
+| Bluetooth | Service on at boot, and pairing that works on this chip (`mac-bt-pair`) | [bluetooth/](bluetooth/README.md) |
 | Sleep and graphics | Lid sleep, key-press wake (s2idle), Intel on the panel, Thunderbolt and USB-C survive sleep. **Costs you the Radeon and external monitors** in Linux | [power/](power/README.md) |
 | Kernel updates | A kernel upgrade that would break a DKMS driver aborts before it installs | [kernel-updates/](kernel-updates/README.md) |
 
@@ -27,6 +28,7 @@ Mac yet. If you do, report the result with the bug template, failures included.
 | Part | Arch and Arch-based | Fedora, Ubuntu, Debian, openSUSE |
 |---|---|---|
 | Wi-Fi | Tested | Same file copy, untested |
+| Bluetooth | Pairing tested; installer not yet run on a fresh install | `bluez` from dnf, apt or zypper, untested |
 | Speakers | AUR package through yay, tested | Upstream's DKMS installer, untested |
 | Touch Bar | Tested | DKMS and headers from dnf, apt or zypper, untested |
 | Sleep and graphics | Tested on EndeavourOS with systemd-boot and dracut | Kernel line through grubby or `/etc/default/grub`, untested. Ubuntu and Debian need a manual initramfs check |
@@ -58,6 +60,8 @@ Then install the parts in this order:
 4. **Sleep and graphics.** `cd ~/macbook-14-3-linux/power && sudo ./install-power.sh --dgpu-off`.
    On Hyprland, set `AQ_DRM_DEVICES` as the installer says. Then reboot.
 5. **Kernel updates (Arch only).** `cd ~/macbook-14-3-linux/kernel-updates && sudo ./install-kernel-updates.sh`.
+6. **Bluetooth.** `cd ~/macbook-14-3-linux/bluetooth && sudo ./install-bluetooth.sh`. No reboot.
+   Pair devices with `mac-bt-pair`, not `bluetoothctl pair` (see [bluetooth/README.md](bluetooth/README.md)).
 
 Each folder has its own README with verify steps, troubleshooting, and removal.
 
@@ -66,6 +70,8 @@ Each folder has its own README with verify steps, troubleshooting, and removal.
 These are on `main` and have not run on the Mac yet:
 
 - **All parts:** installers detect Fedora, Ubuntu, Debian and openSUSE and use dnf, apt or zypper.
+- **Bluetooth (new):** `install-bluetooth.sh` and `mac-bt-pair`. The connect-to-pair method paired
+  AirPods Max on kernel 7.2.11; the installer and the `mac-bt-pair` wrapper haven't paired a device yet.
 - **Touch Bar:** `install-arch.sh` is now `install-touchbar.sh`. It installs the headers package
   that matches the running kernel, such as `linux-lts-headers`.
 - **Speakers:** a non-Arch path that runs upstream's DKMS installer.

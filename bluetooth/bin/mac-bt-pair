@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+#
+# Pair a Bluetooth device on the MacBookPro14,3 (BCM20703A2 on UART, hci_uart_bcm).
+#   mac-bt-pair                  list devices nearby (10 s scan)
+#   mac-bt-pair AA:BB:CC:DD:EE:FF  pair, trust and connect that device
+#
+# "bluetoothctl pair" fails on this controller: the kernel asks for the remote name before it
+# authenticates, the name never comes back while the link is up, and the device hangs up after
+# 20 s (AuthenticationFailed or AuthenticationCancelled). A plain connect goes live at once and
+# pairs when the device's profiles ask for encryption. A "confirm passkey" request is answered
+# yes, because you started the pair. A keyboard that wants a typed passkey is not handled.
+#
+set -uo pipefail
+
+if [ $# -eq 0 ]; then
+  bluetoothctl --timeout 10 scan on >/dev/null 2>&1
+  bluetoothctl devices
+  exit
+fi
+
+ADDR=$1
+[[ $ADDR =~ ^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$ ]] || { echo "Not an address: $ADDR" >&2; exit 2; }
+
+coproc BT { stdbuf -oL bluetoothctl --agent NoInputNoOutput 2>&1; }
+printf 'power on\ndefault-agent\npairable on\nconnect %s\n' "$ADDR" >&"${BT[1]}"
+
+# read -t restarts with every line and bluetoothctl keeps printing scan updates,
+# so the 40 s limit is an overall deadline
+ok=no end=$((SECONDS + 40)) out=""
+while [ $SECONDS -lt $end ] && IFS= read -r -t $((end - SECONDS)) line <&"${BT[0]}"; do
+  out+="$line"$'\n'
+  case "$line" in
+    *'Confirm passkey'*|*'Request confirmation'*|*'Authorize service'*) echo yes >&"${BT[1]}" ;;
+    *'Connection successful'*) ok=yes; break ;;
+    *'Failed to connect'*|*'not available'*) break ;;
+  esac
+done
+# a pending connect keeps bluetoothctl from reading "quit"
+echo quit >&"${BT[1]}" 2>/dev/null
+sleep 1
+kill "$BT_PID" 2>/dev/null
+wait "$BT_PID" 2>/dev/null
+
+if [ $ok != yes ]; then
+  msg=$(printf '%s' "$out" | sed 's/\x1b\[[0-9;]*[a-zA-Z]//g' | grep -E 'Failed|Error|not available' | tail -n1)
+  echo "${msg:-No answer from $ADDR within 40 s. Is it in pairing mode?}" >&2
+  exit 1
+fi
+if ! bluetoothctl info "$ADDR" | grep -q 'Paired: yes'; then
+  echo "Connected, but not paired. Put the device in pairing mode and run this again." >&2
+  exit 1
+fi
+bluetoothctl trust "$ADDR" >/dev/null
+echo "Paired and connected: $ADDR"
